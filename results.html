@@ -5,13 +5,8 @@
     <title>Search for Kids - Résultats</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <script src="config.js"></script>
-    <script>
-        // Construction dynamique de l'URL du CSE
-        const cseScript = document.createElement('script');
-        cseScript.src = `https://cse.google.com/cse.js?cx=${CONFIG.GOOGLE_CSE_ID}`;
-        cseScript.async = true;
-        document.head.appendChild(cseScript);
-    </script>
+    <script src="search.js"></script>
+    <script src="knowledge-panels.js"></script>
 
     <style>
         body {
@@ -20,11 +15,7 @@
             background-color: #fff;
         }
 
-        .gsc-tabHeader {
-            font-size: 14px;
-        }
-
-        /* Barre de recherche en haut */
+        /* Barre de recherche */
         .search-container {
             position: relative;
             margin-left: 180px;
@@ -83,7 +74,7 @@
             position: absolute;
             top: 100%;
             left: 0;
-            right: 60px; /* Largeur du bouton */
+            right: 60px;
             background: white;
             border: 1px solid #e0e0e0;
             border-top: none;
@@ -112,47 +103,420 @@
             border-bottom: none;
         }
 
-        /* Conteneur principal des résultats - style Google */
-        .gsc-control-wrapper-cse {
-            margin-left: 180px !important; /* Même marge que Google */
-            margin-right: 40px !important;
-            max-width: none !important;
+        /* Onglets de recherche façon Google */
+        .search-tabs {
+            margin-left: 180px;
+            margin-right: 40px;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 1rem;
         }
 
-        .gcse-searchresults-only {
-            font-size: 1.1rem;
-            line-height: 1.6;
+        /* Conteneur des résultats */
+        .results-container {
+            margin-left: 180px;
+            margin-right: 40px;
+            max-width: calc(100vw - 220px);
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .search-tab {
+            padding: 12px 0;
+            color: #5f6368;
+            font-size: 14px;
+            text-decoration: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+        }
+
+        .search-tab.active {
+            color: #1a73e8;
+            border-bottom-color: #1a73e8;
+            font-weight: 500;
+        }
+
+        .search-tab:hover {
+            color: #1a73e8;
+        }
+
+        /* Grille d'images */
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .image-result {
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .image-result:hover {
+            transform: scale(1.05);
+        }
+
+        .image-result img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .image-info {
+            padding: 8px 4px;
+            font-size: 12px;
+            color: #70757a;
+        }
+
+        .image-title {
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 4px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .image-source {
+            color: #70757a;
+        }
+
+        /* Modal pour images */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+        }
+
+        .modal-info {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .knowledge-panel {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 400px;
+            float: right;
+            margin-left: 24px;
+            margin-top: 0;
+        }
+
+        .panel-header {
+            margin-bottom: 16px;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #202124;
+            margin: 0 0 4px 0;
+            line-height: 1.3;
+        }
+
+        .panel-source {
+            font-size: 12px;
+            color: #70757a;
+            font-weight: normal;
+        }
+
+        .panel-image {
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .panel-image img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            max-height: 200px;
+            object-fit: cover;
+        }
+
+        .panel-content {
+            margin-bottom: 16px;
+        }
+
+        .panel-extract {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #4d5156;
+            margin: 0;
+        }
+
+        .panel-footer {
+            border-top: 1px solid #f0f0f0;
+            padding-top: 12px;
+        }
+
+        .panel-link {
+            color: #1a73e8;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .panel-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .knowledge-panel {
+                float: none;
+                margin-left: 0;
+                max-width: none;
+            }
+        }
+
+        /* Responsive pour onglets */
+        @media (max-width: 768px) {
+            .search-tabs {
+                margin-left: 20px;
+                margin-right: 20px;
+            }
+
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 0.8rem;
+            }
+
+            .image-result img {
+                height: 120px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .search-tabs {
+                margin-left: 10px;
+                margin-right: 10px;
+            }
+
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 0.6rem;
+            }
+
+            .image-result img {
+                height: 100px;
+            }
+        }
+
+        /* Stats de recherche */
+        .search-stats {
+            color: #70757a;
+            font-size: 14px;
+            margin-bottom: 1rem;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            padding: 2rem;
+            color: #70757a;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #1a73e8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Résultats individuels */
+        .search-result {
+            margin-bottom: 1.8rem;
+            max-width: none;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .result-content {
+            flex: 1;
+        }
+
+        .result-thumbnail {
+            flex-shrink: 0;
+            width: 120px;
+            height: 90px;
+        }
+
+        .result-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .result-url {
+            font-size: 14px;
+            color: #202124;
+            line-height: 1.3;
+            margin-bottom: 3px;
+        }
+
+        .result-title {
+            font-size: 20px;
+            line-height: 1.3;
+            margin-bottom: 3px;
+        }
+
+        .result-title a {
+            color: #1a0dab;
+            text-decoration: none;
+        }
+
+        .result-title a:hover {
+            text-decoration: underline;
+        }
+
+        .result-title a:visited {
+            color: #681da8;
+        }
+
+        .result-snippet {
+            color: #4d5156;
+            font-size: 14px;
+            line-height: 1.58;
+            margin-top: 5px;
+            overflow: visible;
+            max-height: none;
+        }
+
+        /* Responsive pour les vignettes */
+        @media (max-width: 480px) {
+            .search-result {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .result-thumbnail {
+                width: 100%;
+                height: 120px;
+                order: -1;
+            }
+        }
+
+        /* Pagination */
+        .pagination {
             margin: 2rem 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* Titres des résultats */
-        .gs-title, .gs-title * {
-            font-size: 1.2rem !important;
-            color: #1a0dab !important;
+        .pagination button {
+            background: none;
+            border: none;
+            color: #1a73e8;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
         }
 
-        /* URL et domaine */
-        .gs-bidi-start-align, .gs-snippet, .gs-visibleUrl {
-            font-size: 14px !important;
-            line-height: 1.6;
-            color: #545454 !important;
+        .pagination button:hover {
+            background-color: #f8f9fa;
         }
 
-        /* Snippet / description */
-        .gs-snippet {
-            margin-top: 4px;
+        .pagination button:disabled {
+            color: #80868b;
+            cursor: not-allowed;
         }
 
-        /* Masquer tous les liens "Search more on Google" */
-        .gcsc-find-more-on-google,
-        .gcsc-find-more-on-google-text,
-        .gcsc-find-more-on-google-query,
-        .gcsc-find-more-on-google-magnifier {
-            display: none !important;
+        .pagination button.current {
+            background-color: #1a73e8;
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .search-container {
+                margin-left: 20px;
+                margin-right: 20px;
+            }
+
+            .results-container {
+                margin-left: 20px;
+                margin-right: 20px;
+            }
+
+            .search-bar img {
+                height: 35px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .search-container {
+                margin-left: 10px;
+                margin-right: 10px;
+            }
+
+            .results-container {
+                margin-left: 10px;
+                margin-right: 10px;
+            }
+
+            .search-bar img {
+                height: 30px;
+            }
         }
     </style>
 </head>
-<body>
 <body>
 <div class="search-container">
     <div class="search-bar">
@@ -165,159 +529,37 @@
     </div>
 </div>
 
-<div class="gcse-searchresults-only"></div>
+<!-- Onglets de recherche façon Google -->
+<div class="search-tabs">
+    <div class="tabs-container">
+        <a href="#" class="search-tab active" id="webTab" onclick="switchTab('web')">Tous</a>
+        <a href="#" class="search-tab" id="imagesTab" onclick="switchTab('images')">Images</a>
+    </div>
+</div>
 
-<script>
-    let suggestions = [];
+<!-- Conteneur des résultats -->
+<div class="results-container" id="resultsContainer">
+    <div id="searchStats" class="search-stats"></div>
+    <div id="loadingIndicator" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        Recherche en cours...
+    </div>
+    <div id="searchResults"></div>
+    <div id="imagesResults" class="images-grid" style="display: none;"></div>
+    <div id="pagination" class="pagination"></div>
+</div>
 
-    // Charger les suggestions depuis le fichier JSON
-    fetch('suggestions.json')
-        .then(response => response.json())
-        .then(data => {
-            suggestions = data.suggestions;
-        })
-        .catch(error => {
-            console.error('Erreur lors du chargement des suggestions:', error);
-            // Suggestions de fallback en cas d'erreur
-            suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
-        });
-
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('q');
-    const searchInput = document.getElementById('searchInput');
-    const dropdown = document.getElementById('autocompleteDropdown');
-    let selectedIndex = -1;
-
-    if(query) {
-        searchInput.value = query;
-        // Mettre à jour le titre de la page avec le terme recherché
-        document.title = `${query} - Search for Kids`;
-    }
-
-    // Fonction pour mettre à jour le titre lors des nouvelles recherches
-    function updatePageTitle(searchQuery) {
-        document.title = `${searchQuery} - Search for Kids`;
-    }
-
-    // Autocomplétion
-    searchInput.addEventListener('input', function() {
-        const value = this.value.toLowerCase().trim();
-
-        if (value.length < 2) {
-            hideDropdown();
-            return;
-        }
-
-        const filtered = suggestions.filter(item =>
-            item.toLowerCase().includes(value)
-        ).slice(0, 8); // Limite à 8 suggestions
-
-        if (filtered.length > 0) {
-            showSuggestions(filtered);
-        } else {
-            hideDropdown();
-        }
-    });
-
-    searchInput.addEventListener('keydown', function(e) {
-        const items = dropdown.querySelectorAll('.autocomplete-item');
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-            updateSelection(items);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            selectedIndex = Math.max(selectedIndex - 1, -1);
-            updateSelection(items);
-        } else if (e.key === 'Enter') {
-            if (selectedIndex >= 0 && items[selectedIndex]) {
-                e.preventDefault();
-                selectSuggestion(items[selectedIndex].textContent);
-            }
-        } else if (e.key === 'Escape') {
-            hideDropdown();
-        }
-    });
-
-    // Cacher le dropdown si on clique ailleurs
-    document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-            hideDropdown();
-        }
-    });
-
-    function showSuggestions(filtered) {
-        dropdown.innerHTML = '';
-        selectedIndex = -1;
-
-        filtered.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.textContent = item;
-            div.addEventListener('click', () => selectSuggestion(item));
-            dropdown.appendChild(div);
-        });
-
-        dropdown.style.display = 'block';
-    }
-
-    function hideDropdown() {
-        dropdown.style.display = 'none';
-        selectedIndex = -1;
-    }
-
-    function updateSelection(items) {
-        items.forEach((item, index) => {
-            item.classList.toggle('selected', index === selectedIndex);
-        });
-    }
-
-    function selectSuggestion(suggestion) {
-        searchInput.value = suggestion;
-        hideDropdown();
-        // Lancer automatiquement la recherche
-        const element = google.search.cse.element.getElement('searchresults-only0');
-        if(element) element.execute(suggestion);
-        // Mettre à jour le titre de la page
-        updatePageTitle(suggestion);
-        // Mettre à jour l'URL sans recharger la page
-        const newUrl = new URL(window.location);
-        newUrl.searchParams.set('q', suggestion);
-        window.history.pushState({}, '', newUrl);
-    }
-
-    window.onload = () => {
-        const element = google.search.cse.element.getElement('searchresults-only0');
-        if(element && query) element.execute(query);
-
-        const selectors = [
-            '.gcsc-find-more-on-google',
-            '.gcsc-find-more-on-google-text',
-            '.gcsc-find-more-on-google-query',
-            '.gcsc-find-more-on-google-magnifier'
-        ];
-        setTimeout(() => {
-            selectors.forEach(sel => {
-                const el = document.querySelector(sel);
-                if(el) el.style.display = 'none';
-            });
-        }, 1000);
-    };
-
-    function doSearch(event) {
-        event.preventDefault();
-        const newQuery = searchInput.value;
-        const element = google.search.cse.element.getElement('searchresults-only0');
-        if(element) element.execute(newQuery);
-        hideDropdown();
-        // Mettre à jour le titre de la page
-        updatePageTitle(newQuery);
-        // Mettre à jour l'URL sans recharger la page
-        const newUrl = new URL(window.location);
-        newUrl.searchParams.set('q', newQuery);
-        window.history.pushState({}, '', newUrl);
-    }
-</script>
+<!-- Modal pour afficher les images en grand -->
+<div id="imageModal" class="image-modal">
+    <span class="close-modal" onclick="closeImageModal()">&times;</span>
+    <div class="modal-content">
+        <img id="modalImage" class="modal-image" src="" alt="">
+        <div class="modal-info">
+            <div id="modalTitle"></div>
+            <div id="modalSource"></div>
+            <div id="modalDimensions"></div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
