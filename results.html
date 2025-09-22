@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Search for Kids - Résultats</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<script async src="https://cse.google.com/cse.js?cx=03e255a7baebb452c"></script>
+
+<style>
+  /* --- Structure globale --- */
+  html, body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #fff;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* --- Conteneur central (max-width pour ressembler à Google) --- */
+  .container {
+    max-width: 1200px; /* largeur max similaire à Google */
+    margin: 0 auto;
+    padding: 0 2rem; /* marges internes sur les côtés */
+    box-sizing: border-box;
+  }
+
+  /* --- Barre de recherche --- */
+  .search-container {
+    position: relative;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #fff;
+  }
+
+  .search-bar {
+    display: flex;
+    align-items: center;
+    max-width: 100%;
+  }
+
+  .search-bar img {
+    height: 40px;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .search-bar form {
+    flex: 1;
+    display: flex;
+    position: relative;
+    max-width: 100%;
+  }
+
+  .search-bar input[type="text"] {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #dcdcdc;
+    border-radius: 24px 0 0 24px;
+    outline: none;
+    min-width: 0; /* Evite le débordement en flex */
+    background: #fff;
+  }
+
+  .search-bar input[type="text"]:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 1px #1a73e8;
+  }
+
+  .search-bar button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    padding: 0 1.2rem;
+    border-radius: 0 24px 24px 0;
+    cursor: pointer;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .search-bar button:hover {
+    background-color: #1669c1;
+  }
+
+  /* --- Autocomplétion --- */
+  .autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 60px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: none;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .autocomplete-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .autocomplete-item:hover,
+  .autocomplete-item.selected {
+    background-color: #f8f9fa;
+  }
+
+  .autocomplete-item:last-child {
+    border-bottom: none;
+  }
+
+  /* --- Résultats Google centrés --- */
+  .results-container {
+    max-width: 800px; /* largeur max des résultats */
+    margin: 2rem auto;
+    padding: 0 1rem;
+    box-sizing: border-box;
+  }
+
+  .gsc-control-wrapper-cse {
+    margin: 0 auto !important;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Texte des résultats */
+  .gcse-searchresults-only {
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  /* Titres des résultats */
+  .gs-title, .gs-title * {
+    font-size: 1.2rem !important;
+    color: #1a0dab !important;
+  }
+
+  /* Texte et URL */
+  .gs-bidi-start-align, .gs-snippet, .gs-visibleUrl {
+    font-size: 14px !important;
+    line-height: 1.6;
+    color: #545454 !important;
+  }
+
+  /* Snippets */
+  .gs-snippet {
+    margin-top: 4px;
+  }
+
+  /* Masquer les liens "Search more on Google" */
+  .gcsc-find-more-on-google,
+  .gcsc-find-more-on-google-text,
+  .gcsc-find-more-on-google-query,
+  .gcsc-find-more-on-google-magnifier {
+    display: none !important;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1rem;
+    }
+
+    .search-bar img {
+      height: 32px;
+      margin-right: 0.8rem;
+    }
+
+    .search-bar input[type="text"] {
+      font-size: 0.9rem;
+    }
+
+    .search-bar button {
+      font-size: 0.9rem;
+      padding: 0 0.8rem;
+    }
+
+    .results-container {
+      margin: 1rem auto;
+      padding: 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <!-- Barre de recherche en haut -->
+  <div class="search-container">
+    <div class="container search-bar">
+      <a href="index.html"><img src="logo.png" alt="Logo"></a>
+      <form onsubmit="doSearch(event)">
+        <input type="text" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
+        <button type="submit">🔍</button>
+        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Résultats centrés -->
+  <div class="results-container">
+    <div class="gcse-searchresults-only"></div>
+  </div>
+
+  <script>
+    let suggestions = [];
+
+    // Charger les suggestions depuis le fichier JSON
+    fetch('suggestions.json')
+      .then(response => response.json())
+      .then(data => {
+        suggestions = data.suggestions;
+      })
+      .catch(error => {
+        console.error('Erreur lors du chargement des suggestions:', error);
+        suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
+      });
+
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q');
+    const searchInput = document.getElementById('searchInput');
+    const dropdown = document.getElementById('autocompleteDropdown');
+    let selectedIndex = -1;
+
+    if (query) {
+      searchInput.value = query;
+      document.title = `${query} - Search for Kids`;
+    }
+
+    function updatePageTitle(searchQuery) {
+      document.title = `${searchQuery} - Search for Kids`;
+    }
+
+    /* --- Autocomplétion --- */
+    searchInput.addEventListener('input', function() {
+      const value = this.value.toLowerCase().trim();
+      
+      if (value.length < 2) {
+        hideDropdown();
+        return;
+      }
+
+      const filtered = suggestions.filter(item => 
+        item.toLowerCase().includes(value)
+      ).slice(0, 8);
+
+      if (filtered.length > 0) {
+        showSuggestions(filtered);
+      } else {
+        hideDropdown();
+      }
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+      const items = dropdown.querySelectorAll('.autocomplete-item');
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        updateSelection(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, -1);
+        updateSelection(items);
+      } else if (e.key === 'Enter') {
+        if (selectedIndex >= 0 && items[selectedIndex]) {
+          e.preventDefault();
+          selectSuggestion(items[selectedIndex].textContent);
+        }
+      } else if (e.key === 'Escape') {
+        hideDropdown();
+      }
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+        hideDropdown();
+      }
+    });
+
+    function showSuggestions(filtered) {
+      dropdown.innerHTML = '';
+      selectedIndex = -1;
+      
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        div.textContent = item;
+        div.addEventListener('click', () => selectSuggestion(item));
+        dropdown.appendChild(div);
+      });
+      
+      dropdown.style.display = 'block';
+    }
+
+    function hideDropdown() {
+      dropdown.style.display = 'none';
+      selectedIndex = -1;
+    }
+
+    function updateSelection(items) {
+      items.forEach((item, index) => {
+        item.classList.toggle('selected', index === selectedIndex);
+      });
+    }
+
+    function selectSuggestion(suggestion) {
+      searchInput.value = suggestion;
+      hideDropdown();
+      const element = google.search.cse.element.getElement('searchresults-only0');
+      if (element) element.execute(suggestion);
+      updatePageTitle(suggestion);
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('q', suggestion);
+      window.history.pushState({}, '', newUrl);
+    }
+
+    window.onload = () => {
+      const element = google.search.cse.element.getElement('searchresults-only0');
+      if (element && query) element.execute(query);
+
+      const selectors = [
+        '.gcsc-find-more-on-google',
+        '.gcsc-find-more-on-google-text',
+        '.gcsc-find-more-on-google-query',
+        '.gcsc-find-more-on-google-magnifier'
+      ];
+      setTimeout(() => {
+        selectors.forEach(sel => {
+          const el = document.querySelector(sel);
+          if (el) el.style.display = 'none';
+        });
+      }, 1000);
+    };
+
+    function doSearch(event) {
+      event.preventDefault();
+      const newQuery = searchInput.value;
+      const element = google.search.cse.element.getElement('searchresults-only0');
+      if (element) element.execute(newQuery);
+      hideDropdown();
+      updatePageTitle(newQuery);
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('q', newQuery);
+      window.history.pushState({}, '', newUrl);
+    }
+  </script>
+</body>
+</html>
