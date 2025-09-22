@@ -1,0 +1,15 @@
+# Configuration avec secrets
+config.js
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

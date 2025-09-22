@@ -1,371 +1,371 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Search for Kids</title>
-<link rel="icon" type="image/png" href="favicon.png">
+    <meta charset="UTF-8">
+    <title>Search for Kids</title>
+    <link rel="icon" type="image/png" href="favicon.png">
 
-<!-- Mode app web -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Search for Kids">
-<link rel="apple-touch-icon" href="favicon.png">
-<meta name="mobile-web-app-capable" content="yes">
+    <!-- Mode app web -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Search for Kids">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <meta name="mobile-web-app-capable" content="yes">
 
-<style>
-  body {
-    font-family: "Product Sans", Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    min-height: 100vh;
-    margin: 0;
-    background-color: #ffffff;
-    padding: 0 20px;
-    padding-top: 10vh; /* Un peu d'espace en haut */
-  }
+    <style>
+        body {
+            font-family: "Product Sans", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #ffffff;
+            padding: 0 20px;
+            padding-top: 10vh; /* Un peu d'espace en haut */
+        }
 
-  img#logo {
-    width: 220px;
-    margin-bottom: 40px;
-  }
+        img#logo {
+            width: 220px;
+            margin-bottom: 40px;
+        }
 
-  .search-container {
-    position: relative;
-    width: 60%;
-    max-width: 600px;
-    margin-bottom: 20px;
-  }
+        .search-container {
+            position: relative;
+            width: 60%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
 
-  .search-bar {
-    display: flex;
-    width: 100%;
-  }
+        .search-bar {
+            display: flex;
+            width: 100%;
+        }
 
-  input[type="text"] {
-    flex: 1;
-    padding: 0.9rem 1rem;
-    font-size: 1.2rem;
-    border: 1px solid #dcdcdc;
-    border-radius: 24px 0 0 24px;
-    outline: none;
-  }
+        input[type="text"] {
+            flex: 1;
+            padding: 0.9rem 1rem;
+            font-size: 1.2rem;
+            border: 1px solid #dcdcdc;
+            border-radius: 24px 0 0 24px;
+            outline: none;
+        }
 
-  input[type="text"]:focus {
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 1px #1a73e8;
-  }
+        input[type="text"]:focus {
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 1px #1a73e8;
+        }
 
-  button {
-    background-color: #1a73e8;
-    color: white;
-    border: none;
-    padding: 0 1.8rem;
-    border-radius: 0 24px 24px 0;
-    cursor: pointer;
-    font-size: 1.2rem;
-  }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 0 1.8rem;
+            border-radius: 0 24px 24px 0;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
 
-  button:hover {
-    background-color: #1669c1;
-  }
+        button:hover {
+            background-color: #1669c1;
+        }
 
-  /* Autocomplétion */
-  .autocomplete-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 60px; /* Largeur du bouton */
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-top: none;
-    border-radius: 0 0 24px 24px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    z-index: 1000;
-    display: none;
-    max-height: 300px;
-    overflow-y: auto;
-  }
+        /* Autocomplétion */
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 60px; /* Largeur du bouton */
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
 
-  .autocomplete-item {
-    padding: 12px 16px;
-    cursor: pointer;
-    font-size: 1rem;
-    color: #333;
-    border-bottom: 1px solid #f0f0f0;
-  }
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+        }
 
-  .autocomplete-item:hover,
-  .autocomplete-item.selected {
-    background-color: #f8f9fa;
-  }
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: #f8f9fa;
+        }
 
-  .autocomplete-item:last-child {
-    border-bottom: none;
-  }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
 
-  .description {
-    text-align: center;
-    font-size: 1.1rem;
-    color: #555;
-    max-width: 500px;
-    line-height: 1.5;
-    margin-bottom: 1.2rem;
-  }
+        .description {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #555;
+            max-width: 500px;
+            line-height: 1.5;
+            margin-bottom: 1.2rem;
+        }
 
-  /* Section Sites Recommandés */
-  .recommended-sites {
-    background-color: #f8f9fa;
-    padding: 0.8rem;
-    border-radius: 16px;
-    max-width: 800px;
-    margin-bottom: 1rem;
-    margin-top: 0;
-  }
+        /* Section Sites Recommandés */
+        .recommended-sites {
+            background-color: #f8f9fa;
+            padding: 0.8rem;
+            border-radius: 16px;
+            max-width: 800px;
+            margin-bottom: 1rem;
+            margin-top: 0;
+        }
 
-  .recommended-sites h3 {
-    color: #333;
-    font-size: 1.3rem;
-    margin-bottom: 0.8rem;
-    margin-top: 0;
-    text-align: center;
-  }
+        .recommended-sites h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 0.8rem;
+            margin-top: 0;
+            text-align: center;
+        }
 
-  .sites-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    max-width: 600px;
-    margin: 0 auto;
-  }
+        .sites-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
 
-  .site-card {
-    background: white;
-    padding: 1rem;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+        .site-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
 
-  .site-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  }
+        .site-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
 
-  .site-card a {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+        .site-card a {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
 
-  .site-icon {
-    font-size: 1.8rem;
-    margin-bottom: 0.3rem;
-  }
+        .site-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.3rem;
+        }
 
-  .site-title {
-    font-weight: bold;
-    color: #1a73e8;
-    margin-bottom: 0.3rem;
-    font-size: 0.9rem;
-  }
+        .site-title {
+            font-weight: bold;
+            color: #1a73e8;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
 
-  .site-desc {
-    font-size: 0.8rem;
-    color: #666;
-    line-height: 1.3;
-  }
+        .site-desc {
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.3;
+        }
 
-  /* Responsive */
-  @media (max-width: 768px) {
-    .sites-grid {
-      grid-template-columns: repeat(2, 1fr);
-      max-width: 400px;
-    }
-  }
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sites-grid {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 400px;
+            }
+        }
 
-  @media (max-width: 480px) {
-    .sites-grid {
-      grid-template-columns: 1fr;
-      max-width: 250px;
-    }
-  }
-</style>
+        @media (max-width: 480px) {
+            .sites-grid {
+                grid-template-columns: 1fr;
+                max-width: 250px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <img id="logo" src="logo.png" alt="Logo">
-  
-  <div class="search-container">
+<img id="logo" src="logo.png" alt="Logo">
+
+<div class="search-container">
     <form class="search-bar" action="results.html" method="get">
-      <input type="text" name="q" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
-      <button type="submit">🔍</button>
+        <input type="text" name="q" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
+        <button type="submit">🔍</button>
     </form>
     <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
-  </div>
+</div>
 
-  <div class="description">
-    Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour t'aider dans tes exposés.<br>Préparé avec ❤️ par papa.
-  </div>
+<div class="description">
+    Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour tes exposés. Tape un mot ou une question et clique sur la loupe pour voir les résultats filtrés.
+</div>
 
-  <div class="recommended-sites">
+<div class="recommended-sites">
     <h3>📚 Sites recommandés pour tes recherches</h3>
     <div class="sites-grid">
-      <div class="site-card">
-        <a href="https://fr.vikidia.org/" target="_blank">
-          <div class="site-icon">📖</div>
-          <div class="site-title">Vikidia</div>
-          <div class="site-desc">L'encyclopédie des 8-13 ans avec des explications simples</div>
-        </a>
-      </div>
-      
-      <div class="site-card">
-        <a href="https://www.1jour1actu.com/" target="_blank">
-          <div class="site-icon">📰</div>
-          <div class="site-title">1jour1actu</div>
-          <div class="site-desc">L'actualité à la portée des enfants</div>
-        </a>
-      </div>
-      
-      <div class="site-card">
-        <a href="https://kids.britannica.com/" target="_blank">
-          <div class="site-icon">🌍</div>
-          <div class="site-title">Britannica Kids</div>
-          <div class="site-desc">Encyclopédie internationale de référence pour enfants</div>
-        </a>
-      </div>
-      
-      <div class="site-card">
-        <a href="https://louvrekids.louvre.fr/" target="_blank">
-          <div class="site-icon">🎨</div>
-          <div class="site-title">Louvre Kids</div>
-          <div class="site-desc">Découvre l'art et les œuvres du Louvre</div>
-        </a>
-      </div>
+        <div class="site-card">
+            <a href="https://fr.vikidia.org/" target="_blank">
+                <div class="site-icon">📖</div>
+                <div class="site-title">Vikidia</div>
+                <div class="site-desc">L'encyclopédie des 8-13 ans avec des explications simples</div>
+            </a>
+        </div>
 
-      <div class="site-card">
-        <a href="https://classes.bnf.fr/" target="_blank">
-          <div class="site-icon">📚</div>
-          <div class="site-title">BnF Classes</div>
-          <div class="site-desc">Ressources de la Bibliothèque nationale de France</div>
-        </a>
-      </div>
-      
-      <div class="site-card">
-        <a href="https://www.cite-sciences.fr/" target="_blank">
-          <div class="site-icon">🔬</div>
-          <div class="site-title">Cité des Sciences</div>
-          <div class="site-desc">Sciences et découvertes pour les curieux</div>
-        </a>
-      </div>
+        <div class="site-card">
+            <a href="https://www.1jour1actu.com/" target="_blank">
+                <div class="site-icon">📰</div>
+                <div class="site-title">1jour1actu</div>
+                <div class="site-desc">L'actualité à la portée des enfants</div>
+            </a>
+        </div>
+
+        <div class="site-card">
+            <a href="https://kids.britannica.com/" target="_blank">
+                <div class="site-icon">🌍</div>
+                <div class="site-title">Britannica Kids</div>
+                <div class="site-desc">Encyclopédie internationale de référence pour enfants</div>
+            </a>
+        </div>
+
+        <div class="site-card">
+            <a href="https://louvrekids.louvre.fr/" target="_blank">
+                <div class="site-icon">🎨</div>
+                <div class="site-title">Louvre Kids</div>
+                <div class="site-desc">Découvre l'art et les œuvres du Louvre</div>
+            </a>
+        </div>
+
+        <div class="site-card">
+            <a href="https://classes.bnf.fr/" target="_blank">
+                <div class="site-icon">📚</div>
+                <div class="site-title">BnF Classes</div>
+                <div class="site-desc">Ressources de la Bibliothèque nationale de France</div>
+            </a>
+        </div>
+
+        <div class="site-card">
+            <a href="https://www.cite-sciences.fr/" target="_blank">
+                <div class="site-icon">🔬</div>
+                <div class="site-title">Cité des Sciences</div>
+                <div class="site-desc">Sciences et découvertes pour les curieux</div>
+            </a>
+        </div>
     </div>
-  </div>
+</div>
 
-  <script>
+<script>
     let suggestions = [];
 
     // Charger les suggestions depuis le fichier JSON
     fetch('suggestions.json')
-      .then(response => response.json())
-      .then(data => {
-        suggestions = data.suggestions;
-      })
-      .catch(error => {
-        console.error('Erreur lors du chargement des suggestions:', error);
-        // Suggestions de fallback en cas d'erreur
-        suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
-      });
+        .then(response => response.json())
+        .then(data => {
+            suggestions = data.suggestions;
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des suggestions:', error);
+            // Suggestions de fallback en cas d'erreur
+            suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
+        });
 
     const searchInput = document.getElementById('searchInput');
     const dropdown = document.getElementById('autocompleteDropdown');
     let selectedIndex = -1;
 
     searchInput.addEventListener('input', function() {
-      const value = this.value.toLowerCase().trim();
-      
-      if (value.length < 2) {
-        hideDropdown();
-        return;
-      }
+        const value = this.value.toLowerCase().trim();
 
-      const filtered = suggestions.filter(item => 
-        item.toLowerCase().includes(value)
-      ).slice(0, 8); // Limite à 8 suggestions
+        if (value.length < 2) {
+            hideDropdown();
+            return;
+        }
 
-      if (filtered.length > 0) {
-        showSuggestions(filtered);
-      } else {
-        hideDropdown();
-      }
+        const filtered = suggestions.filter(item =>
+            item.toLowerCase().includes(value)
+        ).slice(0, 8); // Limite à 8 suggestions
+
+        if (filtered.length > 0) {
+            showSuggestions(filtered);
+        } else {
+            hideDropdown();
+        }
     });
 
     searchInput.addEventListener('keydown', function(e) {
-      const items = dropdown.querySelectorAll('.autocomplete-item');
-      
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-        updateSelection(items);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        selectedIndex = Math.max(selectedIndex - 1, -1);
-        updateSelection(items);
-      } else if (e.key === 'Enter') {
-        if (selectedIndex >= 0 && items[selectedIndex]) {
-          e.preventDefault();
-          selectSuggestion(items[selectedIndex].textContent);
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+            updateSelection(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelection(items);
+        } else if (e.key === 'Enter') {
+            if (selectedIndex >= 0 && items[selectedIndex]) {
+                e.preventDefault();
+                selectSuggestion(items[selectedIndex].textContent);
+            }
+        } else if (e.key === 'Escape') {
+            hideDropdown();
         }
-      } else if (e.key === 'Escape') {
-        hideDropdown();
-      }
     });
 
     // Cacher le dropdown si on clique ailleurs
     document.addEventListener('click', function(e) {
-      if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-        hideDropdown();
-      }
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            hideDropdown();
+        }
     });
 
     function showSuggestions(filtered) {
-      dropdown.innerHTML = '';
-      selectedIndex = -1;
-      
-      filtered.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'autocomplete-item';
-        div.textContent = item;
-        div.addEventListener('click', () => selectSuggestion(item));
-        dropdown.appendChild(div);
-      });
-      
-      dropdown.style.display = 'block';
+        dropdown.innerHTML = '';
+        selectedIndex = -1;
+
+        filtered.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.textContent = item;
+            div.addEventListener('click', () => selectSuggestion(item));
+            dropdown.appendChild(div);
+        });
+
+        dropdown.style.display = 'block';
     }
 
     function hideDropdown() {
-      dropdown.style.display = 'none';
-      selectedIndex = -1;
+        dropdown.style.display = 'none';
+        selectedIndex = -1;
     }
 
     function updateSelection(items) {
-      items.forEach((item, index) => {
-        item.classList.toggle('selected', index === selectedIndex);
-      });
+        items.forEach((item, index) => {
+            item.classList.toggle('selected', index === selectedIndex);
+        });
     }
 
     function selectSuggestion(suggestion) {
-      searchInput.value = suggestion;
-      hideDropdown();
-      searchInput.focus();
+        searchInput.value = suggestion;
+        hideDropdown();
+        searchInput.focus();
     }
-  </script>
+</script>
 </body>
 </html>
