@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const RESULTS_PER_PAGE = 10;
     let currentSearchType = 'web'; // 'web' ou 'images'
     let currentQuery = '';
+    let currentSort = ''; // '' (pertinence) ou 'date'
     let currentPage = 1;
 
     // ========== DOM refs ==========
@@ -21,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalDimensions = document.getElementById('modalDimensions');
     const webTab = document.getElementById('webTab');
     const imagesTab = document.getElementById('imagesTab');
+    const toolsContainer = document.getElementById('toolsContainer');
+    const toolsButton = document.getElementById('toolsButton');
 
     if (!searchInput) {
         console.error('search.js: #searchInput introuvable dans le DOM');
@@ -41,20 +44,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     // ========== Helpers ==========
-    function updateUrl(query, type = currentSearchType, page = 1) {
+    function updateUrl(query, type = currentSearchType, page = 1, sort = currentSort) {
         try {
             const newUrl = new URL(window.location);
             newUrl.searchParams.set('q', query);
             newUrl.searchParams.set('type', type);
             if (page && page > 1) newUrl.searchParams.set('p', page);
             else newUrl.searchParams.delete('p');
+            if (sort) newUrl.searchParams.set('sort', sort);
+            else newUrl.searchParams.delete('sort');
             window.history.pushState({}, '', newUrl);
         } catch (e) {
             // ignore if URL API unavailable
         }
     }
 
-    function buildApiUrl(query, type, page) {
+    function buildApiUrl(query, type, page, sort) {
         const startIndex = (page - 1) * RESULTS_PER_PAGE + 1;
         const url = new URL('https://www.googleapis.com/customsearch/v1');
         url.searchParams.set('q', query);
@@ -65,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         url.searchParams.set('safe', 'active');
         url.searchParams.set('filter', '1');
         if (type === 'images') url.searchParams.set('searchType', 'image');
+        if (sort) url.searchParams.set('sort', sort);
         return url.toString();
     }
 
@@ -82,9 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!q) return;
         currentQuery = q;
         currentPage = 1;
-        performSearch(currentQuery, currentSearchType, currentPage);
+        performSearch(currentQuery, currentSearchType, currentPage, currentSort);
         document.title = `${currentQuery} - Search for Kids`;
-        updateUrl(currentQuery, currentSearchType, currentPage);
+        updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
     }
 
     async function performSearch(query, type = 'web', page = 1) {
@@ -95,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statsEl.innerHTML = '';
         paginationEl.innerHTML = '';
 
-        const apiUrl = buildApiUrl(query, type, page);
+        const apiUrl = buildApiUrl(query, type, page, currentSort);
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
@@ -124,6 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
             statsEl.textContent = totalResults ? `Environ ${totalResults.toLocaleString('fr-FR')} résultats${time ? ' (' + parseFloat(time).toFixed(2) + 's)' : ''}` : '';
         } else {
             statsEl.textContent = '';
+        }
+
+        // Gérer la visibilité du bouton Outils
+        if (toolsContainer) {
+            toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'block' : 'none';
         }
 
         if (!data.items || data.items.length === 0) {
@@ -200,8 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
             prev.textContent = 'Précédent';
             prev.onclick = () => {
                 currentPage = Math.max(1, page - 1);
-                performSearch(currentQuery, currentSearchType, currentPage);
-                updateUrl(currentQuery, currentSearchType, currentPage);
+                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+                updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
             };
             paginationEl.appendChild(prev);
         }
@@ -216,8 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pbtn.onclick = () => {
                 if (i !== page) {
                     currentPage = i;
-                    performSearch(currentQuery, currentSearchType, currentPage);
-                    updateUrl(currentQuery, currentSearchType, currentPage);
+                    performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+                    updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
                 }
             };
             paginationEl.appendChild(pbtn);
@@ -228,8 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
             next.textContent = 'Suivant';
             next.onclick = () => {
                 currentPage = page + 1;
-                performSearch(currentQuery, currentSearchType, currentPage);
-                updateUrl(currentQuery, currentSearchType, currentPage);
+                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+                updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
             };
             paginationEl.appendChild(next);
         }
@@ -251,14 +262,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentQuery) {
             currentPage = 1;
-            performSearch(currentQuery, currentSearchType, currentPage);
-            updateUrl(currentQuery, currentSearchType, currentPage);
+            // Le tri par date n'est pas utile pour les images, on le réinitialise
+            if (type === 'images') {
+                currentSort = '';
+            }
+            performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+            updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
         }
     }
 
     // Ensure onclick attributes (if present in HTML) still work:
     if (webTab) webTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('web'); });
     if (imagesTab) imagesTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('images'); });
+    
+    // ========== Tri ==========
+    function setupSortOptions() {
+        const sortPanel = document.getElementById('sortPanel');
+        if (!sortPanel || !toolsButton) return;
+
+        const sortOptions = sortPanel.querySelectorAll('.sort-option');
+
+        sortOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                const newSort = e.target.getAttribute('data-sort');
+                if (newSort === currentSort) {
+                    sortPanel.style.display = 'none'; // Ferme si on reclique sur la même option
+                    return;
+                }
+                currentSort = newSort;
+                sortPanel.style.display = 'none'; // Ferme le panneau après sélection
+
+                performSearch(currentQuery, currentSearchType, 1, currentSort); // Relance à la page 1
+                updateUrl(currentQuery, currentSearchType, 1, currentSort);
+            });
+        });
+
+        toolsButton.addEventListener('click', (e) => {
+            e.preventDefault(); // Empêche le lien de suivre l'URL href="#"
+            e.stopPropagation(); // Empêche le clic de se propager au document
+            const sortPanel = document.getElementById('sortPanel');
+            sortPanel.style.display = sortPanel.style.display === 'block' ? 'none' : 'block';
+
+            // Met à jour l'état "actif" du menu
+            if (sortPanel.style.display === 'block') {
+                sortOptions.forEach(opt => opt.classList.toggle('active', opt.getAttribute('data-sort') === currentSort));
+            }
+        });
+    }
 
     // ========== Modal images ==========
     function openImageModal(item) {
@@ -337,6 +388,14 @@ document.addEventListener('DOMContentLoaded', () => {
             autocompleteDropdown.style.display = 'none';
             selectedIndex = -1;
         }
+        // Ferme le panneau de tri si on clique en dehors
+        const sortPanel = document.getElementById('sortPanel');
+        const toolsBtn = document.getElementById('toolsButton');
+        if (sortPanel && sortPanel.style.display === 'block') {
+            if (!sortPanel.contains(e.target) && e.target !== toolsBtn) {
+                sortPanel.style.display = 'none';
+            }
+        }
     });
 
     // ========== Form submit binding ==========
@@ -348,9 +407,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams(window.location.search);
         const qParam = params.get('q') || params.get('q');
         const typeParam = params.get('type');
+        const sortParam = params.get('sort');
         const pageParam = parseInt(params.get('p') || '1', 10) || 1;
         if (typeParam === 'images') currentSearchType = 'images';
         if (qParam) {
+            currentSort = sortParam || '';
             searchInput.value = qParam;
             currentQuery = qParam;
             currentPage = pageParam;
@@ -366,9 +427,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 webResultsEl.style.display = 'block';
                 imagesResultsEl.style.display = 'none';
             }
-            performSearch(currentQuery, currentSearchType, currentPage);
+            performSearch(currentQuery, currentSearchType, currentPage, currentSort);
         }
     } catch (e) {
         // ignore URL parsing errors
     }
+
+    // Initialisation
+    setupSortOptions();
 });
