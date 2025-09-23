@@ -1,3 +1,154 @@
+
+class SearchCache {
+    constructor() {
+        this.cache = new Map();
+        this.maxCacheSize = 300; // Cache plus important pour usage familial
+        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 jours au lieu de 1
+        this.loadFromStorage();
+    }
+
+    // Créer une clé unique pour la requête
+    createKey(query, page, searchType) {
+        return `${searchType}:${query.toLowerCase().trim()}:${page}`;
+    }
+
+    // Sauvegarder dans localStorage
+    saveToStorage() {
+        try {
+            const serialized = JSON.stringify([...this.cache]);
+            localStorage.setItem('search_cache', serialized);
+        } catch (e) {
+            console.warn('Impossible de sauvegarder le cache:', e);
+        }
+    }
+
+    // Charger depuis localStorage
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem('search_cache');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                this.cache = new Map(parsed);
+                this.cleanExpiredEntries();
+            }
+        } catch (e) {
+            console.warn('Impossible de charger le cache:', e);
+            this.cache = new Map();
+        }
+    }
+
+    // Nettoyer les entrées expirées
+    cleanExpiredEntries() {
+        const now = Date.now();
+        for (const [key, value] of this.cache) {
+            if (now - value.timestamp > this.cacheExpiry) {
+                this.cache.delete(key);
+            }
+        }
+    }
+
+    // Obtenir depuis le cache
+    get(query, page, searchType) {
+        const key = this.createKey(query, page, searchType);
+        const entry = this.cache.get(key);
+
+        if (!entry) return null;
+
+        // Vérifier l'expiration
+        if (Date.now() - entry.timestamp > this.cacheExpiry) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        return entry.data;
+    }
+
+    // Stocker dans le cache
+    set(query, page, searchType, data) {
+        // Nettoyer le cache si trop plein
+        if (this.cache.size >= this.maxCacheSize) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+
+        const key = this.createKey(query, page, searchType);
+        this.cache.set(key, {
+            data: data,
+            timestamp: Date.now()
+        });
+
+        this.saveToStorage();
+    }
+
+    // Statistiques du cache
+    getStats() {
+        return {
+            size: this.cache.size,
+            maxSize: this.maxCacheSize
+        };
+    }
+
+    // Vider le cache
+    clear() {
+        this.cache.clear();
+        localStorage.removeItem('search_cache');
+    }
+}
+
+// Gestionnaire de quota API
+class ApiQuotaManager {
+    constructor() {
+        this.dailyLimit = 90; // Limite conservative (100 - marge de sécurité)
+        this.loadUsage();
+    }
+
+    loadUsage() {
+        const stored = localStorage.getItem('api_usage');
+        if (stored) {
+            const data = JSON.parse(stored);
+            const today = new Date().toDateString();
+
+            if (data.date === today) {
+                this.todayUsage = data.count;
+            } else {
+                this.todayUsage = 0;
+                this.saveUsage();
+            }
+        } else {
+            this.todayUsage = 0;
+        }
+    }
+
+    saveUsage() {
+        const data = {
+            date: new Date().toDateString(),
+            count: this.todayUsage
+        };
+        localStorage.setItem('api_usage', JSON.stringify(data));
+    }
+
+    canMakeRequest() {
+        return this.todayUsage < this.dailyLimit;
+    }
+
+    recordRequest() {
+        this.todayUsage++;
+        this.saveUsage();
+    }
+
+    getUsage() {
+        return {
+            used: this.todayUsage,
+            limit: this.dailyLimit,
+            remaining: this.dailyLimit - this.todayUsage
+        };
+    }
+
+    getRemainingRequests() {
+        return Math.max(0, this.dailyLimit - this.todayUsage);
+    }
+}
+
 // search.js — version complète, autonome
 document.addEventListener('DOMContentLoaded', () => {
     // ========== Config & état ==========
@@ -6,13 +157,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuery = '';
     let currentSort = ''; // '' (pertinence) ou 'date'
     let currentPage = 1;
+    const searchCache = new SearchCache();
+    const quotaManager = new ApiQuotaManager();
 
     // ========== DOM refs ==========
     const searchInput = document.getElementById('searchInput');
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
-    const loadingEl = document.getElementById('loadingIndicator');
-    const webResultsEl = document.getElementById('searchResults');
-    const imagesResultsEl = document.getElementById('imagesResults');
+    const loadingEl = document.getElementById('loadingIndicator');    
+    const resultsContainer = document.getElementById('resultsContainer');
     const statsEl = document.getElementById('searchStats');
     const paginationEl = document.getElementById('pagination');
     const imageModal = document.getElementById('imageModal');
@@ -37,9 +189,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetch('suggestions.json')
         .then(r => r.json())
-        .then(j => { suggestions = j.suggestions || []; })
-        .catch(() => {
-            // fallback
+        .then(j => { suggestions = j.suggestions || []; }) // j.suggestions est la clé dans le JSON
+        .catch((err) => {
+            console.warn('Impossible de charger suggestions.json, utilisation des suggestions de secours.', err);
             suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
         });
 
@@ -83,11 +235,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== Recherche principale ==========
     function doSearch(e) {
-        if (e) e.preventDefault();
+        if (e) e.preventDefault(); // Empêche la soumission du formulaire
         const q = searchInput.value.trim();
         if (!q) return;
+
+        // Donne le focus au bouton pour indiquer l'action et fermer le clavier sur mobile
+        const searchButton = document.getElementById('searchButton');
+        if (searchButton) searchButton.focus();
+
+        // Si on est sur la page d'accueil, on redirige vers la page de résultats
+        // La présence du logo sur la page d'accueil est un bon indicateur
+        if (document.getElementById('logo')) {
+            window.location.href = `results.html?q=${encodeURIComponent(q)}`;
+            return;
+        }
+
+        // Si on est déjà sur la page de résultats, on lance la recherche
         currentQuery = q;
         currentPage = 1;
+        currentSort = ''; // Réinitialiser le tri pour une nouvelle recherche
         performSearch(currentQuery, currentSearchType, currentPage, currentSort);
         document.title = `${currentQuery} - Search for Kids`;
         updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
@@ -96,23 +262,38 @@ document.addEventListener('DOMContentLoaded', () => {
     async function performSearch(query, type = 'web', page = 1) {
         if (!query) return;
         showLoading();
-        webResultsEl.innerHTML = '';
-        imagesResultsEl.innerHTML = '';
+        resultsContainer.innerHTML = ''; // Vider le conteneur unique
         statsEl.innerHTML = '';
         paginationEl.innerHTML = '';
 
+        // Affiche le panneau de connaissances (uniquement pour la première page web)
+        if (typeof tryDisplayKnowledgePanel === 'function' && type === 'web' && page === 1) {
+            tryDisplayKnowledgePanel(query);
+        }
+
         const apiUrl = buildApiUrl(query, type, page, currentSort);
+        const cachedData = searchCache.get(query, page, type);
+        if (cachedData) {
+            hideLoading();
+            displayResults(cachedData, type, query, page);
+            updateQuotaDisplay(); // Mettre à jour l'affichage du quota même si on utilise le cache
+            return;
+        }
+
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
             hideLoading();
 
+            searchCache.set(query, page, type, data);
+            quotaManager.recordRequest();
+            updateQuotaDisplay();
+
             if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
             displayResults(data, type, query, page);
         } catch (err) {
             hideLoading();
-            const target = (type === 'images') ? imagesResultsEl : webResultsEl;
-            target.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;">
+            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;">
         <p>Une erreur s'est produite lors de la recherche.</p>
         <p style="font-size:14px; color:#70757a;">${err.message || err}</p>
       </div>`;
@@ -138,8 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!data.items || data.items.length === 0) {
-            const target = (type === 'images') ? imagesResultsEl : webResultsEl;
-            target.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;">
+            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;">
         <p>Aucun ${type === 'images' ? 'image' : 'résultat'} trouvé pour "${query}".</p>
       </div>`;
             createPagination(totalResults, page);
@@ -147,19 +327,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (type === 'web') {
-            // web results
+            resultsContainer.classList.remove('grid');
             data.items.forEach(item => {
-                webResultsEl.appendChild(createSearchResult(item));
+                resultsContainer.appendChild(createSearchResult(item));
             });
-            webResultsEl.style.display = 'block';
-            imagesResultsEl.style.display = 'none';
         } else {
-            // image results
+            resultsContainer.classList.add('grid');
             data.items.forEach(item => {
-                imagesResultsEl.appendChild(createImageResult(item));
+                resultsContainer.appendChild(createImageResult(item));
             });
-            imagesResultsEl.style.display = 'grid';
-            webResultsEl.style.display = 'none';
         }
 
         createPagination(totalResults, page, data);
@@ -192,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imgUrl = item.link || (item.image && item.image.thumbnailLink) || '';
 
         div.innerHTML = `
-      <img src="${imgUrl}" alt="${item.title || ''}" loading="lazy" onerror="this.style.display='none'">
+      <img src="${imgUrl}" alt="${item.title || ''}" loading="lazy" onerror="this.parentElement.style.display='none'">
       <div class="image-info">
         <div class="image-title">${item.title || ''}</div>
         <div class="image-source">${item.displayLink || ''}</div>
@@ -204,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Pagination ==========
     function createPagination(totalResults = 0, page = 1, data = null) {
         paginationEl.innerHTML = '';
-        const maxPages = totalResults ? Math.min(Math.ceil(totalResults / RESULTS_PER_PAGE), 10) : (data && data.queries && data.queries.nextPage ? page + 1 : page);
+        const maxPages = totalResults ? Math.min(Math.ceil(totalResults / RESULTS_PER_PAGE), 10) : page;
 
         if (page > 1) {
             const prev = document.createElement('button');
@@ -234,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             paginationEl.appendChild(pbtn);
         }
 
-        if ((data && data.queries && data.queries.nextPage) || (!totalResults && (data && data.queries && data.queries.nextPage))) {
+        if (data && data.queries && data.queries.nextPage) {
             const next = document.createElement('button');
             next.textContent = 'Suivant';
             next.onclick = () => {
@@ -251,14 +427,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSearchType = type;
         if (webTab) webTab.classList.toggle('active', type === 'web');
         if (imagesTab) imagesTab.classList.toggle('active', type === 'images');
-
-        if (type === 'web') {
-            webResultsEl.style.display = 'block';
-            imagesResultsEl.style.display = 'none';
-        } else {
-            webResultsEl.style.display = 'none';
-            imagesResultsEl.style.display = 'grid';
-        }
 
         if (currentQuery) {
             currentPage = 1;
@@ -346,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.textContent = match;
                 div.addEventListener('click', () => {
                     searchInput.value = match;
-                    autocompleteDropdown.style.display = 'none';
+                    autocompleteDropdown.style.display = 'none'; // Cacher le dropdown
                     doSearch();
                 });
                 autocompleteDropdown.appendChild(div);
@@ -370,6 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedIndex >= 0 && items[selectedIndex]) {
                 e.preventDefault();
                 items[selectedIndex].click();
+                autocompleteDropdown.style.display = 'none'; // Fermer le dropdown
             } else {
                 // allow form submit normally -> we intercept via doSearch on submit
             }
@@ -417,15 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPage = pageParam;
             // ensure tab UI matches
             if (currentSearchType === 'images') {
-                if (imagesTab) imagesTab.classList.add('active');
-                if (webTab) webTab.classList.remove('active');
-                imagesResultsEl.style.display = 'grid';
-                webResultsEl.style.display = 'none';
-            } else {
-                if (webTab) webTab.classList.add('active');
-                if (imagesTab) imagesTab.classList.remove('active');
-                webResultsEl.style.display = 'block';
-                imagesResultsEl.style.display = 'none';
+                switchTab('images'); // Utiliser switchTab pour assurer la cohérence
             }
             performSearch(currentQuery, currentSearchType, currentPage, currentSort);
         }
@@ -434,5 +595,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialisation
-    setupSortOptions();
+    if (document.getElementById('sortPanel')) setupSortOptions();
+
+    // Mettre à jour l'affichage du quota
+    function updateQuotaDisplay() {
+        const usage = quotaManager.getUsage();
+        const cacheStats = searchCache.getStats();
+
+        let quotaEl = document.getElementById('quotaIndicator');
+        if (!quotaEl) {
+            quotaEl = document.createElement('div');
+            quotaEl.id = 'quotaIndicator';
+            quotaEl.style.cssText = `
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #70757a;
+            z-index: 1000;
+        `;
+            document.body.appendChild(quotaEl);
+        }
+
+        const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
+        quotaEl.innerHTML = `
+        📊 API: <span style="color: ${quotaColor}">${usage.remaining}</span>/${usage.limit} | 
+        📋 Cache: ${cacheStats.size}/${cacheStats.maxSize}
+    `;
+    }
 });

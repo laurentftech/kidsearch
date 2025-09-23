@@ -154,9 +154,10 @@
             color: #1a73e8;
         }
 
-        /* Conteneur pour le bouton Outils qui redevient un conteneur */
+        /* Le conteneur d'outils est maintenant juste un wrapper pour le bouton et le panneau */
         .tools-container {
             position: relative; /* Essentiel pour positionner le .sort-panel */
+            display: flex; /* Pour que le bouton à l'intérieur s'aligne correctement */
         }
 
         /* Stats de recherche */
@@ -188,6 +189,13 @@
             font-weight: 500;
         }
 
+        /* Le conteneur de résultats peut maintenant devenir une grille pour les images */
+        .results-container.grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
         .search-tab:hover {
             color: #1a73e8;
         }
@@ -195,12 +203,6 @@
         /* Grille d'images */
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 1rem;
-            padding: 1rem 0;
-        }
-
-        .image-result {
             cursor: pointer;
             border-radius: 8px;
             overflow: hidden;
@@ -386,11 +388,6 @@
                 margin-right: 10px;
             }
 
-            .images-grid {
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 0.6rem;
-            }
-
             .image-result img {
                 height: 100px;
             }
@@ -564,7 +561,7 @@
 <div class="search-container">
     <div class="search-bar">
         <a href="index.html"><img src="logo.png" alt="Logo"></a>
-        <form onsubmit="doSearch(event)">
+        <form>
             <input type="text" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
             <button type="submit">🔍</button>
             <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
@@ -575,8 +572,8 @@
 <!-- Onglets de recherche façon Google -->
 <div class="search-tabs">
     <div class="tabs-container">
-        <a href="#" class="search-tab active" id="webTab" onclick="switchTab('web')">Tous</a>
-        <a href="#" class="search-tab" id="imagesTab" onclick="switchTab('images')">Images</a>
+        <a href="#" class="search-tab active" id="webTab">Tous</a>
+        <a href="#" class="search-tab" id="imagesTab">Images</a>
         <div class="tools-container" id="toolsContainer" style="display: none;">
             <a href="#" class="search-tab" id="toolsButton">Outils</a>
             <div id="sortPanel" class="sort-panel">
@@ -594,8 +591,6 @@
         <div class="spinner"></div>
         Recherche en cours...
     </div>
-    <div id="searchResults"></div>
-    <div id="imagesResults" class="images-grid" style="display: none;"></div>
     <div id="pagination" class="pagination"></div>
 </div>
 

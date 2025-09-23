@@ -211,9 +211,9 @@
 <img id="logo" src="logo.png" alt="Logo">
 
 <div class="search-container">
-    <form class="search-bar" action="results.html" method="get">
+    <form class="search-bar" onsubmit="return false;">
         <input type="text" name="q" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
-        <button type="submit">🔍</button>
+        <button type="submit" id="searchButton">🔍</button>
     </form>
     <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
 </div>
@@ -275,103 +275,7 @@
     </div>
 </div>
 
-<script>
-    let suggestions = [];
-
-    // Charger les suggestions depuis le fichier JSON
-    fetch('suggestions.json')
-        .then(response => response.json())
-        .then(data => {
-            suggestions = data.suggestions;
-        })
-        .catch(error => {
-            console.error('Erreur lors du chargement des suggestions:', error);
-            // Suggestions de fallback en cas d'erreur
-            suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
-        });
-
-    const searchInput = document.getElementById('searchInput');
-    const dropdown = document.getElementById('autocompleteDropdown');
-    let selectedIndex = -1;
-
-    searchInput.addEventListener('input', function() {
-        const value = this.value.toLowerCase().trim();
-
-        if (value.length < 2) {
-            hideDropdown();
-            return;
-        }
-
-        const filtered = suggestions.filter(item =>
-            item.toLowerCase().includes(value)
-        ).slice(0, 8); // Limite à 8 suggestions
-
-        if (filtered.length > 0) {
-            showSuggestions(filtered);
-        } else {
-            hideDropdown();
-        }
-    });
-
-    searchInput.addEventListener('keydown', function(e) {
-        const items = dropdown.querySelectorAll('.autocomplete-item');
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-            updateSelection(items);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            selectedIndex = Math.max(selectedIndex - 1, -1);
-            updateSelection(items);
-        } else if (e.key === 'Enter') {
-            if (selectedIndex >= 0 && items[selectedIndex]) {
-                e.preventDefault();
-                selectSuggestion(items[selectedIndex].textContent);
-            }
-        } else if (e.key === 'Escape') {
-            hideDropdown();
-        }
-    });
-
-    // Cacher le dropdown si on clique ailleurs
-    document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-            hideDropdown();
-        }
-    });
-
-    function showSuggestions(filtered) {
-        dropdown.innerHTML = '';
-        selectedIndex = -1;
-
-        filtered.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.textContent = item;
-            div.addEventListener('click', () => selectSuggestion(item));
-            dropdown.appendChild(div);
-        });
-
-        dropdown.style.display = 'block';
-    }
-
-    function hideDropdown() {
-        dropdown.style.display = 'none';
-        selectedIndex = -1;
-    }
-
-    function updateSelection(items) {
-        items.forEach((item, index) => {
-            item.classList.toggle('selected', index === selectedIndex);
-        });
-    }
-
-    function selectSuggestion(suggestion) {
-        searchInput.value = suggestion;
-        hideDropdown();
-        searchInput.focus();
-    }
-</script>
+<script src="config.js"></script>
+<script src="search.js"></script>
 </body>
 </html>
