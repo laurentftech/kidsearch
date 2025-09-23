@@ -12,7 +12,7 @@ const translations = {
             { url: "https://www.1jour1actu.com/", icon: "📰", title: "1jour1actu", desc: "L'actualité à la portée des enfants" },
             { url: "https://www.cite-sciences.fr/", icon: "🔬", title: "Cité des Sciences", desc: "Sciences et découvertes pour les curieux" },
             { url: "https://classes.bnf.fr/", icon: "📚", title: "BnF Classes", desc: "Ressources de la Bibliothèque nationale" },
-            { url: "https://www.geo.fr/environnement/jeux-enfants", icon: "🌍", title: "Géo Ado", desc: "Jeux sur l'environnement et la nature" },
+            { url: "https://kids.nationalgeographic.com/", icon: "🌍", title: "Nat Geo Kids", desc: "Geography, science, and nature" },
             { url: "https://louvrekids.louvre.fr/", icon: "🎨", title: "Louvre Kids", desc: "Découvre l'art et les œuvres du Louvre" }
         ],
 
