@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <title>Search for Kids - Résultats</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <script src="config.js"></script>
+    <script src="i18n.js"></script>
     <script src="search.js"></script>
     <script src="knowledge-panels.js"></script>
 
@@ -121,7 +122,6 @@
 
         .sort-panel {
             position: absolute;
-            /* La position est maintenant gérée par le conteneur .tools-container */
             top: 100%;
             left: 0;
             display: none;
@@ -129,11 +129,11 @@
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            padding: 0.5rem 0; /* Moins de padding vertical */
+            padding: 0.5rem 0;
             z-index: 100;
             margin-top: 8px;
             width: max-content;
-            min-width: 120px; /* Largeur minimale */
+            min-width: 120px;
         }
 
         .sort-option {
@@ -154,10 +154,9 @@
             color: #1a73e8;
         }
 
-        /* Le conteneur d'outils est maintenant juste un wrapper pour le bouton et le panneau */
         .tools-container {
-            position: relative; /* Essentiel pour positionner le .sort-panel */
-            display: flex; /* Pour que le bouton à l'intérieur s'aligne correctement */
+            position: relative;
+            display: flex;
         }
 
         /* Stats de recherche */
@@ -168,12 +167,11 @@
         }
 
         .tabs-container {
-            display: flex; /* Aligne les onglets et le bouton Outils */
-            gap: 2rem; /* Espace entre les éléments */
-            align-items: center; /* Aligne verticalement les éléments */
+            display: flex;
+            gap: 2rem;
+            align-items: center;
         }
 
-        /* Ajustement pour la barre d'onglets et outils */
         .search-tab {
             padding: 12px 0;
             color: #5f6368;
@@ -189,7 +187,6 @@
             font-weight: 500;
         }
 
-        /* Le conteneur de résultats peut maintenant devenir une grille pour les images */
         .results-container.grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -200,7 +197,6 @@
             color: #1a73e8;
         }
 
-        /* Grille d'images */
         .images-grid {
             display: grid;
             cursor: pointer;
@@ -356,6 +352,25 @@
             text-decoration: underline;
         }
 
+        /* Footer avec signature */
+        .footer {
+            margin-top: 2rem;
+            padding: 20px;
+            text-align: center;
+            color: #70757a;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .knowledge-panel {
@@ -363,10 +378,13 @@
                 margin-left: 0;
                 max-width: none;
             }
-        }
 
-        /* Responsive pour onglets */
-        @media (max-width: 768px) {
+            .language-selector {
+                position: static;
+                margin-bottom: 10px;
+                justify-content: center;
+            }
+
             .search-tabs {
                 margin-left: 20px;
                 margin-right: 20px;
@@ -480,10 +498,10 @@
         /* Responsive pour les vignettes */
         @media (max-width: 480px) {
             .result-thumbnail {
-                width: 92px; /* Taille fixe pour l'image */
-                height: 92px; /* Format carré */
-                flex-shrink: 0; /* Empêche l'image de rétrécir */
-                order: 1; /* Place l'image à droite */
+                width: 92px;
+                height: 92px;
+                flex-shrink: 0;
+                order: 1;
             }
         }
 
@@ -529,8 +547,7 @@
             .results-container {
                 margin-left: 20px;
                 margin-right: 20px;
-                /* On s'assure que le conteneur prend toute la largeur disponible */
-                max-width: none; 
+                max-width: none;
             }
 
             .search-bar img {
@@ -547,7 +564,6 @@
             .results-container {
                 margin-left: 10px;
                 margin-right: 10px;
-                /* On s'assure que le conteneur prend toute la largeur disponible */
                 max-width: none;
             }
 
@@ -562,7 +578,7 @@
     <div class="search-bar">
         <a href="index.html"><img src="logo.png" alt="Logo"></a>
         <form>
-            <input type="text" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
+            <input type="text" id="searchInput" required autocomplete="off" data-i18n="placeholder" data-i18n-attr="placeholder">
             <button type="submit">🔍</button>
             <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
         </form>
@@ -572,13 +588,13 @@
 <!-- Onglets de recherche façon Google -->
 <div class="search-tabs">
     <div class="tabs-container">
-        <a href="#" class="search-tab active" id="webTab">Tous</a>
-        <a href="#" class="search-tab" id="imagesTab">Images</a>
+        <a href="#" class="search-tab active" id="webTab" data-i18n="webTab">Tous</a>
+        <a href="#" class="search-tab" id="imagesTab" data-i18n="imagesTab">Images</a>
         <div class="tools-container" id="toolsContainer" style="display: none;">
-            <a href="#" class="search-tab" id="toolsButton">Outils</a>
+            <a href="#" class="search-tab" id="toolsButton" data-i18n="toolsButton">Outils</a>
             <div id="sortPanel" class="sort-panel">
-                <a href="#" class="sort-option" data-sort="">Pertinence</a>
-                <a href="#" class="sort-option" data-sort="date">Date</a>
+                <a href="#" class="sort-option" data-sort="" id="relevanceOption" data-i18n="relevanceOption">Pertinence</a>
+                <a href="#" class="sort-option" data-sort="date" id="dateOption" data-i18n="dateOption">Date</a>
             </div>
         </div>
     </div>
@@ -589,7 +605,7 @@
     <div id="searchStats" class="search-stats"></div>
     <div id="loadingIndicator" class="loading" style="display: none;">
         <div class="spinner"></div>
-        Recherche en cours...
+        <span id="loadingText" data-i18n="loadingText">Recherche en cours...</span>
     </div>
     <div id="pagination" class="pagination"></div>
 </div>
@@ -604,6 +620,14 @@
             <div id="modalSource"></div>
             <div id="modalDimensions"></div>
         </div>
+    </div>
+</div>
+
+<!-- Footer avec signature -->
+<div class="footer">
+    <div id="footerText" data-i18n="footerText">Créé avec ❤️ pour l'éducation des enfants</div>
+    <div style="margin-top: 8px;">
+        Created by <a href="https://laurentftech.github.io" target="_blank" rel="noopener">Laurent F.</a>
     </div>
 </div>
 </body>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <title>Search for Kids</title>
@@ -23,7 +23,7 @@
             margin: 0;
             background-color: #ffffff;
             padding: 0 20px;
-            padding-top: 10vh; /* Un peu d'espace en haut */
+            padding-top: 10vh;
         }
 
         img#logo {
@@ -76,7 +76,7 @@
             position: absolute;
             top: 100%;
             left: 0;
-            right: 60px; /* Largeur du bouton */
+            right: 60px;
             background: white;
             border: 1px solid #e0e0e0;
             border-top: none;
@@ -186,6 +186,24 @@
             line-height: 1.3;
         }
 
+        /* Footer avec signature */
+        .footer {
+            margin-top: auto;
+            padding: 20px;
+            text-align: center;
+            color: #70757a;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sites-grid {
@@ -201,81 +219,50 @@
             }
 
             .search-container {
-                width: 100%; /* Prend toute la largeur sur mobile */
+                width: 100%;
                 max-width: none;
             }
         }
     </style>
 </head>
 <body>
+
 <img id="logo" src="logo.png" alt="Logo">
 
 <div class="search-container">
     <form class="search-bar" onsubmit="return false;">
-        <input type="text" name="q" id="searchInput" placeholder="Tape ta recherche..." required autocomplete="off">
+        <input type="text" name="q" id="searchInput" required autocomplete="off" data-i18n="placeholder" data-i18n-attr="placeholder">
         <button type="submit" id="searchButton">🔍</button>
     </form>
     <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
 </div>
 
-<div class="description">
-    Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour tes exposés. Tape un mot ou une question et clique sur la loupe pour voir les résultats filtrés.
+<div class="description" id="description">
+    <!-- Le contenu sera injecté par JavaScript -->
 </div>
 
 <div class="recommended-sites">
-    <h3>📚 Sites recommandés pour tes recherches</h3>
-    <div class="sites-grid">
-        <div class="site-card">
-            <a href="https://fr.vikidia.org/" target="_blank">
-                <div class="site-icon">📖</div>
-                <div class="site-title">Vikidia</div>
-                <div class="site-desc">L'encyclopédie des 8-13 ans avec des explications simples</div>
-            </a>
-        </div>
+    <h3 id="recommendedTitle" data-i18n="recommendedTitle"><!-- Le titre sera injecté par JavaScript --></h3>
+    <div class="sites-grid" id="sitesGrid">
+        <!-- Les sites seront injectés par JavaScript -->
+    </div>
+</div>
 
-        <div class="site-card">
-            <a href="https://www.1jour1actu.com/" target="_blank">
-                <div class="site-icon">📰</div>
-                <div class="site-title">1jour1actu</div>
-                <div class="site-desc">L'actualité à la portée des enfants</div>
-            </a>
-        </div>
-
-        <div class="site-card">
-            <a href="https://kids.britannica.com/" target="_blank">
-                <div class="site-icon">🌍</div>
-                <div class="site-title">Britannica Kids</div>
-                <div class="site-desc">Encyclopédie internationale de référence pour enfants</div>
-            </a>
-        </div>
-
-        <div class="site-card">
-            <a href="https://louvrekids.louvre.fr/" target="_blank">
-                <div class="site-icon">🎨</div>
-                <div class="site-title">Louvre Kids</div>
-                <div class="site-desc">Découvre l'art et les œuvres du Louvre</div>
-            </a>
-        </div>
-
-        <div class="site-card">
-            <a href="https://classes.bnf.fr/" target="_blank">
-                <div class="site-icon">📚</div>
-                <div class="site-title">BnF Classes</div>
-                <div class="site-desc">Ressources de la Bibliothèque nationale de France</div>
-            </a>
-        </div>
-
-        <div class="site-card">
-            <a href="https://www.cite-sciences.fr/" target="_blank">
-                <div class="site-icon">🔬</div>
-                <div class="site-title">Cité des Sciences</div>
-                <div class="site-desc">Sciences et découvertes pour les curieux</div>
-            </a>
-        </div>
+<div class="footer">
+    <div id="footerText" data-i18n="footerText"><!-- Le texte sera injecté par JavaScript --></div>
+    <div style="margin-top: 10px;">
+        Created by <a href="https://laurentftech.github.io" target="_blank" rel="noopener">Laurent F.</a>
     </div>
 </div>
 
 <script src="config.js"></script>
+<script src="i18n.js"></script>
 <script src="search.js"></script>
+<script>
+    // Appeler la mise à jour du contenu au chargement
+    document.addEventListener('DOMContentLoaded', () => {
+        i18n.updateContent();
+    });
+</script>
 </body>
 </html>

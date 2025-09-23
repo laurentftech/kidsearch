@@ -188,23 +188,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let inputDebounceTimer = null;
     let currentSuggestionsLang = navigator.language.startsWith('en') ? 'en' : 'fr';
 
-    function loadSuggestions(forceLang = null) {
-        const detectedLang = forceLang || (navigator.language.startsWith('en') ? 'en' : 'fr');
+    function loadSuggestions() {
+        const lang = i18n.getLang();
 
         // Éviter de recharger si c'est déjà la bonne langue
-        if (currentSuggestionsLang === detectedLang && suggestions.length > 0) {
+        if (currentSuggestionsLang === lang && suggestions.length > 0) {
             return;
         }
 
-        currentSuggestionsLang = detectedLang;
-        const suggestionsFile = detectedLang === 'en' ? 'suggestions-en.json' : 'suggestions.json';
+        currentSuggestionsLang = lang;
+        const suggestionsFile = lang === 'en' ? 'suggestions-en.json' : 'suggestions.json';
 
         fetch(suggestionsFile)
             .then(r => r.json())
             .then(j => { suggestions = j.suggestions || []; })
             .catch((err) => {
                 console.warn(`Impossible de charger ${suggestionsFile}, utilisation des suggestions de secours.`, err);
-                suggestions = detectedLang === 'en'
+                suggestions = lang === 'en'
                     ? ["animals", "dinosaurs", "planets", "science", "history"]
                     : ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
             });
@@ -228,23 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Modifier votre fonction existante
-    function detectQueryLanguage(query) {
+    function isFrenchQuery(query) {
         // Contient des caractères accentués français ou des mots courants
         const frenchChars = /[àâçéèêëîïôûùüÿœæ]/i;
         const commonFrenchWords = /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i;
-
-        // Mots anglais courants
-        const commonEnglishWords = /\b(the|and|or|is|are|was|were|for|what|who|when|where|why|how)\b/i;
-
-        if (frenchChars.test(query) || commonFrenchWords.test(query)) {
-            return 'fr';
-        } else if (commonEnglishWords.test(query)) {
-            return 'en';
-        }
-
-        // Par défaut, utiliser la langue du navigateur ou français
-        return navigator.language.startsWith('en') ? 'en' : 'fr';
+        return frenchChars.test(query) || commonFrenchWords.test(query);
     }
 
     function buildApiUrl(query, type, page, sort) {
@@ -261,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sort) url.searchParams.set('sort', sort);
 
         // Priorise les résultats en français si la requête semble être en français
-        if (detectQueryLanguage(query) === 'fr') {
+        if (isFrenchQuery(query)) {
             console.log("🇫🇷 Requête détectée en français, application du filtre de langue 'lang_fr'.");
             url.searchParams.set('lr', 'lang_fr');
         }
@@ -279,27 +267,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Recherche principale ==========
     function doSearch(e) {
         if (e) e.preventDefault(); // Empêche la soumission du formulaire
+
         const q = searchInput.value.trim();
         if (!q) return;
 
-        // Donne le focus au bouton pour indiquer l'action et fermer le clavier sur mobile
-        const searchButton = document.getElementById('searchButton');
-        if (searchButton) searchButton.focus();
-
         // Si on est sur la page d'accueil, on redirige vers la page de résultats
-        // La présence du logo sur la page d'accueil est un bon indicateur
-        if (document.getElementById('logo')) {
+        if (document.body.classList.contains('is-homepage')) {
+            // Donne le focus au bouton pour indiquer l'action et fermer le clavier sur mobile
+            const searchButton = document.getElementById('searchButton');
+            if (searchButton) searchButton.focus();
             window.location.href = `results.html?q=${encodeURIComponent(q)}`;
             return;
         }
 
-        // Si on est déjà sur la page de résultats, on lance la recherche
-        currentQuery = q;
-        currentPage = 1;
-        currentSort = ''; // Réinitialiser le tri pour une nouvelle recherche
-        performSearch(currentQuery, currentSearchType, currentPage, currentSort);
-        document.title = `${currentQuery} - Search for Kids`;
-        updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
+        // Si on est déjà sur la page de résultats, on lance une nouvelle recherche
+        if (document.body.classList.contains('is-resultspage')) {
+            currentQuery = q;
+            currentPage = 1;
+            currentSort = ''; // Réinitialiser le tri pour une nouvelle recherche
+            performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+            document.title = `${currentQuery} - Search for Kids`;
+            updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
+        }
     }
 
     async function performSearch(query, type = 'web', page = 1) {
@@ -351,20 +340,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.searchInformation) {
             totalResults = parseInt(data.searchInformation.totalResults || data.searchInformation.formattedTotalResults || '0', 10) || 0;
             const time = data.searchInformation.searchTime || data.searchInformation.formattedSearchTime || '';
-            statsEl.textContent = totalResults ? `Environ ${totalResults.toLocaleString('fr-FR')} résultats${time ? ' (' + parseFloat(time).toFixed(2) + 's)' : ''}` : '';
+            const formattedResults = totalResults.toLocaleString(i18n.getLang() === 'fr' ? 'fr-FR' : 'en-US');
+            let statsText = totalResults ? `${i18n.get('aboutResults')} ${formattedResults} ${i18n.get('results')}` : '';
+            if (time) {
+                statsText += ` (${parseFloat(time).toFixed(2)}s)`;
+            }
+            statsEl.textContent = statsText;
         } else {
             statsEl.textContent = '';
         }
 
         // Gérer la visibilité du bouton Outils
         if (toolsContainer) {
-            toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'block' : 'none';
+            toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'flex' : 'none';
         }
 
         if (!data.items || data.items.length === 0) {
+            const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${query}"`;
             resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;">
-        <p>Aucun ${type === 'images' ? 'image' : 'résultat'} trouvé pour "${query}".</p>
-      </div>`;
+    <p>${noResultsMsg}</p>
+</div>`;
             createPagination(totalResults, page);
             return;
         }
@@ -427,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (page > 1) {
             const prev = document.createElement('button');
-            prev.textContent = 'Précédent';
+            prev.textContent = i18n.get('previousButton');
             prev.onclick = () => {
                 currentPage = Math.max(1, page - 1);
                 performSearch(currentQuery, currentSearchType, currentPage, currentSort);
@@ -455,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (data && data.queries && data.queries.nextPage) {
             const next = document.createElement('button');
-            next.textContent = 'Suivant';
+            next.textContent = i18n.get('nextButton');
             next.onclick = () => {
                 currentPage = page + 1;
                 performSearch(currentQuery, currentSearchType, currentPage, currentSort);
@@ -555,14 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Détecter la langue de la saisie en cours
-            const queryLang = detectQueryLanguage(value);
-
-            // Charger les bonnes suggestions si nécessaire
-            if ((queryLang === 'en' && !suggestions.includes('animals')) ||
-                (queryLang === 'fr' && !suggestions.includes('animaux'))) {
-                loadSuggestions();
-            }
+            loadSuggestions(); // S'assure que les suggestions sont chargées
 
             const matches = suggestions.filter(s => s.toLowerCase().includes(value)).slice(0, 8);
             matches.forEach(match => {
@@ -631,21 +619,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Auto-run if q in URL ==========
     try {
         const params = new URLSearchParams(window.location.search);
-        const qParam = params.get('q') || params.get('q');
-        const typeParam = params.get('type');
-        const sortParam = params.get('sort');
-        const pageParam = parseInt(params.get('p') || '1', 10) || 1;
-        if (typeParam === 'images') currentSearchType = 'images';
-        if (qParam) {
-            currentSort = sortParam || '';
-            searchInput.value = qParam;
-            currentQuery = qParam;
-            currentPage = pageParam;
-            // ensure tab UI matches
-            if (currentSearchType === 'images') {
-                switchTab('images'); // Utiliser switchTab pour assurer la cohérence
+        if (params.has('q')) {
+            document.body.classList.add('is-resultspage');
+            const qParam = params.get('q');
+            const typeParam = params.get('type');
+            const sortParam = params.get('sort');
+            const pageParam = parseInt(params.get('p') || '1', 10) || 1;
+            if (typeParam === 'images') currentSearchType = 'images';
+            if (qParam) {
+                currentSort = sortParam || '';
+                searchInput.value = qParam;
+                currentQuery = qParam;
+                currentPage = pageParam;
+                // ensure tab UI matches
+                if (currentSearchType === 'images') {
+                    switchTab('images'); // Utiliser switchTab pour assurer la cohérence
+                }
+                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
             }
-            performSearch(currentQuery, currentSearchType, currentPage, currentSort);
+        } else if (document.getElementById('logo')) { // Heuristique pour la page d'accueil
+            document.body.classList.add('is-homepage');
         }
     } catch (e) {
         // ignore URL parsing errors
