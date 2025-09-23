@@ -1,10 +1,12 @@
 // knowledge-panels.js - Encarts de connaissances basés sur Vikidia
 
 // Fonction pour récupérer des informations depuis Vikidia
-async function getVikidiaPanel(query) {
+async function getKnowledgePanelData(query) {
+    const cfg = CONFIG.KNOWLEDGE_PANEL_CONFIG;
+
     try {
         // API Action MediaWiki de Vikidia
-        const apiUrl = `https://fr.vikidia.org/w/api.php`;
+        const apiUrl = cfg.API_URL;
         const params = new URLSearchParams({
             action: 'query',
             format: 'json',
@@ -14,7 +16,7 @@ async function getVikidiaPanel(query) {
             explaintext: true,
             exsectionformat: 'plain',
             piprop: 'thumbnail',
-            pithumbsize: 300,
+            pithumbsize: cfg.THUMBNAIL_SIZE,
             origin: '*'
         });
 
@@ -31,27 +33,27 @@ async function getVikidiaPanel(query) {
         if (page && !page.missing && page.extract) {
             let thumbnailUrl = page.thumbnail?.source || null;
 
-            // Désactiver les images pour éviter les erreurs HTTPS/CORS
-            // Les serveurs Vikidia n'acceptent pas toujours les requêtes HTTPS pour les images
-            thumbnailUrl = null;
+            if (cfg.DISABLE_THUMBNAILS) {
+                thumbnailUrl = null;
+            }
 
             return {
                 title: page.title,
-                extract: page.extract.substring(0, 400) + (page.extract.length > 400 ? '...' : ''),
+                extract: page.extract.substring(0, cfg.EXTRACT_LENGTH) + (page.extract.length > cfg.EXTRACT_LENGTH ? '...' : ''),
                 thumbnail: thumbnailUrl,
-                url: `https://fr.vikidia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`,
-                source: "Vikidia - L'encyclopédie des 8-13 ans"
+                url: `${cfg.BASE_URL}${encodeURIComponent(page.title.replace(/ /g, '_'))}`,
+                source: cfg.SOURCE_NAME
             };
         }
     } catch (error) {
-        console.error('Erreur API Vikidia:', error);
+        console.error(`Erreur API pour ${cfg.SOURCE_NAME}:`, error);
     }
 
     return null;
 }
 
 // Fonction pour essayer plusieurs variantes d'un terme de recherche
-async function findBestVikidiaMatch(query) {
+async function findBestKnowledgeMatch(query) {
     console.log("Recherche Vikidia pour:", query);
 
     // Liste des variantes à essayer
@@ -70,7 +72,7 @@ async function findBestVikidiaMatch(query) {
 
     for (const variant of variants) {
         console.log("Essai variante:", variant);
-        const result = await getVikidiaPanel(variant);
+        const result = await getKnowledgePanelData(variant);
         console.log("Résultat pour", variant, ":", result);
         if (result) {
             return result;
@@ -115,7 +117,7 @@ function displayKnowledgePanel(panelData) {
             
             <div class="panel-footer">
                 <a href="${panelData.url || '#'}" target="_blank" rel="noopener" class="panel-link">
-                    En savoir plus sur Vikidia →
+                    En savoir plus sur ${panelData.source.split(' ')[0]} →
                 </a>
             </div>
         </div>
@@ -136,6 +138,11 @@ async function tryDisplayKnowledgePanel(query) {
     const existingPanel = document.getElementById('knowledgePanel');
     if (existingPanel) {
         existingPanel.remove();
+    }
+
+    // Vérifier si la fonctionnalité est activée dans la config
+    if (!CONFIG.KNOWLEDGE_PANEL_CONFIG || !CONFIG.KNOWLEDGE_PANEL_CONFIG.ENABLED) {
+        return;
     }
 
     // Ne pas afficher d'encart pour des requêtes trop courtes ou trop complexes
@@ -163,7 +170,7 @@ async function tryDisplayKnowledgePanel(query) {
     }
 
     try {
-        const panelData = await findBestVikidiaMatch(query);
+        const panelData = await findBestKnowledgeMatch(query);
         if (panelData) {
             displayKnowledgePanel(panelData);
         }

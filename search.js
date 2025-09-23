@@ -211,6 +211,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Détecte si la requête est probablement en français (heuristique simple)
+    function isFrenchQuery(query) {
+        // Contient des caractères accentués français ou des mots courants
+        const frenchChars = /[àâçéèêëîïôûùüÿœæ]/i;
+        const commonFrenchWords = /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i;
+        return frenchChars.test(query) || commonFrenchWords.test(query);
+    }
+
     function buildApiUrl(query, type, page, sort) {
         const startIndex = (page - 1) * RESULTS_PER_PAGE + 1;
         const url = new URL('https://www.googleapis.com/customsearch/v1');
@@ -223,6 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
         url.searchParams.set('filter', '1');
         if (type === 'images') url.searchParams.set('searchType', 'image');
         if (sort) url.searchParams.set('sort', sort);
+
+        // Priorise les résultats en français si la requête semble être en français
+        if (isFrenchQuery(query)) {
+            console.log("🇫🇷 Requête détectée en français, application du filtre de langue 'lang_fr'.");
+            url.searchParams.set('lr', 'lang_fr');
+        }
+
         return url.toString();
     }
 
