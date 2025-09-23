@@ -186,14 +186,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let suggestions = [];
     let selectedIndex = -1;
     let inputDebounceTimer = null;
+    let currentSuggestionsLang = navigator.language.startsWith('en') ? 'en' : 'fr';
 
-    fetch('suggestions.json')
-        .then(r => r.json())
-        .then(j => { suggestions = j.suggestions || []; }) // j.suggestions est la clé dans le JSON
-        .catch((err) => {
-            console.warn('Impossible de charger suggestions.json, utilisation des suggestions de secours.', err);
-            suggestions = ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
-        });
+    function loadSuggestions(forceLang = null) {
+        const detectedLang = forceLang || (navigator.language.startsWith('en') ? 'en' : 'fr');
+
+        // Éviter de recharger si c'est déjà la bonne langue
+        if (currentSuggestionsLang === detectedLang && suggestions.length > 0) {
+            return;
+        }
+
+        currentSuggestionsLang = detectedLang;
+        const suggestionsFile = detectedLang === 'en' ? 'suggestions-en.json' : 'suggestions.json';
+
+        fetch(suggestionsFile)
+            .then(r => r.json())
+            .then(j => { suggestions = j.suggestions || []; })
+            .catch((err) => {
+                console.warn(`Impossible de charger ${suggestionsFile}, utilisation des suggestions de secours.`, err);
+                suggestions = detectedLang === 'en'
+                    ? ["animals", "dinosaurs", "planets", "science", "history"]
+                    : ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
+            });
+    }
+
+    loadSuggestions();
 
     // ========== Helpers ==========
     function updateUrl(query, type = currentSearchType, page = 1, sort = currentSort) {
@@ -211,12 +228,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Détecte si la requête est probablement en français (heuristique simple)
-    function isFrenchQuery(query) {
+    // Modifier votre fonction existante
+    function detectQueryLanguage(query) {
         // Contient des caractères accentués français ou des mots courants
         const frenchChars = /[àâçéèêëîïôûùüÿœæ]/i;
         const commonFrenchWords = /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i;
-        return frenchChars.test(query) || commonFrenchWords.test(query);
+
+        // Mots anglais courants
+        const commonEnglishWords = /\b(the|and|or|is|are|was|were|for|what|who|when|where|why|how)\b/i;
+
+        if (frenchChars.test(query) || commonFrenchWords.test(query)) {
+            return 'fr';
+        } else if (commonEnglishWords.test(query)) {
+            return 'en';
+        }
+
+        // Par défaut, utiliser la langue du navigateur ou français
+        return navigator.language.startsWith('en') ? 'en' : 'fr';
     }
 
     function buildApiUrl(query, type, page, sort) {
@@ -233,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sort) url.searchParams.set('sort', sort);
 
         // Priorise les résultats en français si la requête semble être en français
-        if (isFrenchQuery(query)) {
+        if (detectQueryLanguage(query) === 'fr') {
             console.log("🇫🇷 Requête détectée en français, application du filtre de langue 'lang_fr'.");
             url.searchParams.set('lr', 'lang_fr');
         }
@@ -515,13 +543,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ========== Autocomplete UI & keyboard ==========
+    // Dans l'event listener 'input', remplacer le filtrage par :
     searchInput.addEventListener('input', (ev) => {
         const value = searchInput.value.toLowerCase().trim();
         clearTimeout(inputDebounceTimer);
         inputDebounceTimer = setTimeout(() => {
             autocompleteDropdown.innerHTML = '';
             selectedIndex = -1;
-            if (!value || !suggestions.length) { autocompleteDropdown.style.display = 'none'; return; }
+            if (!value || !suggestions.length) {
+                autocompleteDropdown.style.display = 'none';
+                return;
+            }
+
+            // Détecter la langue de la saisie en cours
+            const queryLang = detectQueryLanguage(value);
+
+            // Charger les bonnes suggestions si nécessaire
+            if ((queryLang === 'en' && !suggestions.includes('animals')) ||
+                (queryLang === 'fr' && !suggestions.includes('animaux'))) {
+                loadSuggestions();
+            }
+
             const matches = suggestions.filter(s => s.toLowerCase().includes(value)).slice(0, 8);
             matches.forEach(match => {
                 const div = document.createElement('div');
@@ -529,13 +571,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.textContent = match;
                 div.addEventListener('click', () => {
                     searchInput.value = match;
-                    autocompleteDropdown.style.display = 'none'; // Cacher le dropdown
+                    autocompleteDropdown.style.display = 'none';
                     doSearch();
                 });
                 autocompleteDropdown.appendChild(div);
             });
             autocompleteDropdown.style.display = matches.length ? 'block' : 'none';
-        }, 150); // small debounce
+        }, 150);
     });
 
     searchInput.addEventListener('keydown', (e) => {
