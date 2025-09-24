@@ -3,7 +3,8 @@
 # KidSearch 🔍
 
 Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisant Google Custom Search Engine avec des résultats filtrés et des encarts de connaissances basés sur Vikidia.
-En utilisant SearchKid avec Google Family Link (ou autre système de liste blanche) sur Chrome, vous pouvez limiter l'accès à internet aux sites adaptés aux enfants que vous choisissez (et bloquer google.com par exemple).
+
+En l’utilisant avec Google Family Link (ou un autre système de liste blanche) sur Chrome, vous pouvez limiter l’accès à Internet aux seuls sites adaptés aux enfants que vous choisissez (et bloquer par exemple l’accès direct à google.com).
 
 ## Fonctionnalités
 
