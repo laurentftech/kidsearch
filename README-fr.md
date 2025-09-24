@@ -3,6 +3,7 @@
 # KidSearch 🔍
 
 Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisant Google Custom Search Engine avec des résultats filtrés et des encarts de connaissances basés sur Vikidia.
+associé a Google Family Link (ou autre système de liste blanche), vous pouvez limiter l'accès à internet aux sites adaptés aux enfants que vous choisissez (et bloquer google.com par exemple).
 
 ## Fonctionnalités
 
