@@ -249,8 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sort) url.searchParams.set('sort', sort);
 
         // Priorise les résultats en français si la requête semble être en français
-        if (isFrenchQuery(query)) {
-            console.log("🇫🇷 Requête détectée en français, application du filtre de langue 'lang_fr'.");
+        if (isFrenchQuery(query) && type === 'web') {
+            console.log("🇫🇷 Requête en français, application du filtre de langue 'lang_fr' pour la recherche web.");
             url.searchParams.set('lr', 'lang_fr');
         }
 
@@ -292,29 +292,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function performSearch(query, type = 'web', page = 1) {
-        if (!query) return;
+        console.log('🚀 performSearch DÉBUT avec:', query, type, page);
+
+        if (!query) {
+            console.log('❌ performSearch STOP: query vide');
+            return;
+        }
+
+        console.log('✅ Query OK, showLoading()');
         showLoading();
-        resultsContainer.innerHTML = ''; // Vider le conteneur unique
+
+        console.log('✅ Vidage conteneurs');
+        resultsContainer.innerHTML = '';
         statsEl.innerHTML = '';
         paginationEl.innerHTML = '';
 
         // Affiche le panneau de connaissances (uniquement pour la première page web)
         if (typeof tryDisplayKnowledgePanel === 'function' && type === 'web' && page === 1) {
+            console.log('✅ Appel knowledge panel');
             tryDisplayKnowledgePanel(query);
         }
 
+        console.log('✅ Construction URL API');
         const apiUrl = buildApiUrl(query, type, page, currentSort);
+        console.log('🔗 URL construite:', apiUrl);
+
+        console.log('✅ Vérification cache');
         const cachedData = searchCache.get(query, page, type);
         if (cachedData) {
+            console.log('📦 Cache trouvé, affichage résultats');
             hideLoading();
             displayResults(cachedData, type, query, page);
-            updateQuotaDisplay(); // Mettre à jour l'affichage du quota même si on utilise le cache
+            updateQuotaDisplay();
             return;
         }
 
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
+
+            console.log('🔗 URL API utilisée:', apiUrl);
+            console.log('📊 Réponse complète API:', data);
+            console.log('🔢 Nombre items:', data.items?.length);
+            data.items?.forEach((item, i) => {
+                console.log(`${i+1}. ${item.displayLink} - ${item.title}`);
+            });
             hideLoading();
 
             searchCache.set(query, page, type, data);
@@ -462,25 +484,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== Onglets ==========
     function switchTab(type) {
+        console.log('🔄 switchTab appelé avec:', type);
+        console.log('🔄 currentQuery avant:', currentQuery);
+
         currentSearchType = type;
         if (webTab) webTab.classList.toggle('active', type === 'web');
         if (imagesTab) imagesTab.classList.toggle('active', type === 'images');
 
         if (currentQuery) {
+            console.log('🔍 Lancement performSearch avec:', currentQuery, currentSearchType);
             currentPage = 1;
-            // Le tri par date n'est pas utile pour les images, on le réinitialise
             if (type === 'images') {
                 currentSort = '';
             }
             performSearch(currentQuery, currentSearchType, currentPage, currentSort);
             updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
+        } else {
+            console.log('❌ currentQuery vide, pas de recherche');
         }
     }
 
     // Ensure onclick attributes (if present in HTML) still work:
-    if (webTab) webTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('web'); });
-    if (imagesTab) imagesTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('images'); });
-    
+    console.log('Vérification des éléments onglets:');
+    console.log('webTab trouvé:', !!webTab);
+    console.log('imagesTab trouvé:', !!imagesTab);
+
+    if (webTab) {
+        webTab.addEventListener('click', (e) => {
+            console.log('Clic webTab détecté');
+            e.preventDefault();
+            switchTab('web');
+        });
+    } else {
+        console.error('webTab introuvable !');
+    }
+
+    if (imagesTab) {
+        imagesTab.addEventListener('click', (e) => {
+            console.log('Clic imagesTab détecté');
+            e.preventDefault();
+            switchTab('images');
+        });
+    } else {
+        console.error('imagesTab introuvable !');
+    }
+
     // ========== Tri ==========
     function setupSortOptions() {
         const sortPanel = document.getElementById('sortPanel');
@@ -625,19 +673,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const typeParam = params.get('type');
             const sortParam = params.get('sort');
             const pageParam = parseInt(params.get('p') || '1', 10) || 1;
-            if (typeParam === 'images') currentSearchType = 'images';
+
+            // CORRECTION : Déterminer le type initial basé sur l'URL OU l'état visuel des onglets
+            if (typeParam === 'images') {
+                currentSearchType = 'images';
+            } else if (imagesTab && imagesTab.classList.contains('active') && !webTab.classList.contains('active')) {
+                // Si l'onglet Images est visuellement actif mais pas dans l'URL, on synchronise
+                currentSearchType = 'images';
+            }
+
             if (qParam) {
                 currentSort = sortParam || '';
                 searchInput.value = qParam;
                 currentQuery = qParam;
                 currentPage = pageParam;
-                // ensure tab UI matches
+
+                // S'assurer que l'UI des onglets correspond à currentSearchType
                 if (currentSearchType === 'images') {
-                    switchTab('images'); // Utiliser switchTab pour assurer la cohérence
+                    if (webTab) webTab.classList.remove('active');
+                    if (imagesTab) imagesTab.classList.add('active');
+                } else {
+                    if (webTab) webTab.classList.add('active');
+                    if (imagesTab) imagesTab.classList.remove('active');
                 }
+
                 performSearch(currentQuery, currentSearchType, currentPage, currentSort);
             }
-        } else if (document.getElementById('logo')) { // Heuristique pour la page d'accueil
+        } else if (document.getElementById('logo')) {
             document.body.classList.add('is-homepage');
         }
     } catch (e) {
