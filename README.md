@@ -4,6 +4,8 @@
 
 A secure and educational search engine designed for children, using Google Custom Search Engine with filtered results and knowledge panels powered by Vikidia.
 
+When combined with Google Family Link (or another whitelist system) on Chrome, you can restrict Internet access to child-friendly websites of your choice (and block direct access to google.com, for example).
+
 ## Features
 
 - 🎯 **Filtered results**: Only approved educational websites appear
