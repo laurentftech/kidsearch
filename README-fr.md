@@ -13,7 +13,7 @@ Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisan
 - 📖 **Encarts de connaissances** : Informations contextuelles depuis Vikidia pour enrichir les résultats
 - 🔄 **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
 - 📊 **Gestion du quota** : Surveillance automatique de l'utilisation de l'API Google
-- 🇫🇷 **Priorisation française** : Détection automatique des requêtes en français pour de meilleurs résultats
+- 🇫🇷🇬🇧 **Priorisation de la langue** : Détection automatique des requêtes en français ou en anglais pour de meilleurs résultats
 - 🔧 **Options de tri** : Tri par pertinence ou par date (pour les résultats web)
 - 📱 **Design responsive** : Fonctionne sur ordinateur, tablette et mobile
 - 🎨 **Interface enfant** : Design coloré et convivial avec icônes expressives
