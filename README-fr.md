@@ -1,6 +1,6 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=000000)](https://www.buymeacoffee.com/laurentftech)
 
-# Search for Kids 🔍
+# KidSearch 🔍
 
 Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisant Google Custom Search Engine avec des résultats filtrés et des encarts de connaissances basés sur Vikidia.
 
