@@ -13,7 +13,7 @@ A secure and educational search engine designed for children, using Google Custo
 - 📖 **Knowledge panels**: Contextual information from Vikidia to enrich results
 - 🔄 **Smart caching**: Intelligent caching system to optimize performance and save API quota
 - 📊 **Quota management**: Automatic monitoring of Google API usage
-- 🇫🇷 **French prioritization**: Automatic detection of French queries for better results
+- 🇫🇷🇬🇧 **Language prioritization**: Automatic detection of French or English queries for better results
 - 🔧 **Sort options**: Sort by relevance or date (for web results)
 - 📱 **Responsive design**: Works on desktop, tablet and mobile
 - 🎨 **Child-friendly interface**: Colorful and user-friendly design with expressive icons
