@@ -260,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== DOM refs ==========
     const searchInput = document.getElementById('searchInput');
+    const clearButton = document.getElementById('clearButton');
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
     const loadingEl = document.getElementById('loadingIndicator');
     const resultsContainer = document.getElementById('resultsContainer');
@@ -704,6 +705,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Autocomplete UI & keyboard ==========
     // Dans l'event listener 'input', remplacer le filtrage par :
     searchInput.addEventListener('input', (ev) => {
+        // Gère la visibilité du bouton pour effacer
+        if (clearButton) {
+            clearButton.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+        }
+
+
         const value = searchInput.value.toLowerCase().trim();
         clearTimeout(inputDebounceTimer);
         inputDebounceTimer = setTimeout(() => {
@@ -776,6 +783,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Gère le clic sur le bouton pour effacer
+    if (clearButton) {
+        clearButton.addEventListener('click', () => {
+            searchInput.value = '';
+            clearButton.style.display = 'none';
+            autocompleteDropdown.style.display = 'none';
+            selectedIndex = -1;
+            searchInput.focus();
+        });
+    }
+
     // ========== Form submit binding ==========
     const form = document.querySelector('.search-bar form') || document.querySelector('form');
     if (form) form.addEventListener('submit', doSearch);
@@ -803,6 +821,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchInput.value = qParam;
                 currentQuery = qParam;
                 currentPage = pageParam;
+
+                // AFFICHE LA CROIX si le champ est pré-rempli
+                if (clearButton && searchInput.value.length > 0) {
+                    clearButton.style.display = 'block';
+                }
 
                 // S'assurer que l'UI des onglets correspond à currentSearchType
                 if (currentSearchType === 'images') {
