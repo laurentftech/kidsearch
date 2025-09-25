@@ -1,43 +1,39 @@
-
-class SearchCache {
+// Classes de cache séparées
+class WebSearchCache {
     constructor() {
         this.cache = new Map();
-        this.maxCacheSize = 300; // Cache plus important pour usage familial
-        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 jours au lieu de 1
+        this.maxCacheSize = 200;
+        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
         this.loadFromStorage();
     }
 
-    // Créer une clé unique pour la requête
-    createKey(query, page, searchType) {
-        return `${searchType}:${query.toLowerCase().trim()}:${page}`;
+    createKey(query, page, sort = '') {
+        return `web:${query.toLowerCase().trim()}:${page}:${sort}`;
     }
 
-    // Sauvegarder dans localStorage
     saveToStorage() {
         try {
             const serialized = JSON.stringify([...this.cache]);
-            localStorage.setItem('search_cache', serialized);
+            localStorage.setItem('web_search_cache', serialized);
         } catch (e) {
-            console.warn('Impossible de sauvegarder le cache:', e);
+            console.warn('Impossible de sauvegarder le cache web:', e);
         }
     }
 
-    // Charger depuis localStorage
     loadFromStorage() {
         try {
-            const stored = localStorage.getItem('search_cache');
+            const stored = localStorage.getItem('web_search_cache');
             if (stored) {
                 const parsed = JSON.parse(stored);
                 this.cache = new Map(parsed);
                 this.cleanExpiredEntries();
             }
         } catch (e) {
-            console.warn('Impossible de charger le cache:', e);
+            console.warn('Impossible de charger le cache web:', e);
             this.cache = new Map();
         }
     }
 
-    // Nettoyer les entrées expirées
     cleanExpiredEntries() {
         const now = Date.now();
         for (const [key, value] of this.cache) {
@@ -47,14 +43,12 @@ class SearchCache {
         }
     }
 
-    // Obtenir depuis le cache
-    get(query, page, searchType) {
-        const key = this.createKey(query, page, searchType);
+    get(query, page, sort = '') {
+        const key = this.createKey(query, page, sort);
         const entry = this.cache.get(key);
 
         if (!entry) return null;
 
-        // Vérifier l'expiration
         if (Date.now() - entry.timestamp > this.cacheExpiry) {
             this.cache.delete(key);
             return null;
@@ -63,15 +57,13 @@ class SearchCache {
         return entry.data;
     }
 
-    // Stocker dans le cache
-    set(query, page, searchType, data) {
-        // Nettoyer le cache si trop plein
+    set(query, page, data, sort = '') {
         if (this.cache.size >= this.maxCacheSize) {
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
         }
 
-        const key = this.createKey(query, page, searchType);
+        const key = this.createKey(query, page, sort);
         this.cache.set(key, {
             data: data,
             timestamp: Date.now()
@@ -80,7 +72,6 @@ class SearchCache {
         this.saveToStorage();
     }
 
-    // Statistiques du cache
     getStats() {
         return {
             size: this.cache.size,
@@ -88,10 +79,116 @@ class SearchCache {
         };
     }
 
-    // Vider le cache
     clear() {
         this.cache.clear();
-        localStorage.removeItem('search_cache');
+        localStorage.removeItem('web_search_cache');
+    }
+}
+
+class ImageSearchCache {
+    constructor() {
+        this.cache = new Map();
+        this.maxCacheSize = 100;
+        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
+        this.enabled = false; // DÉSACTIVÉ pour l'instant
+        if (this.enabled) {
+            this.loadFromStorage();
+        }
+    }
+
+    createKey(query, page) {
+        return `images:${query.toLowerCase().trim()}:${page}`;
+    }
+
+    saveToStorage() {
+        if (!this.enabled) return;
+        try {
+            const serialized = JSON.stringify([...this.cache]);
+            localStorage.setItem('image_search_cache', serialized);
+        } catch (e) {
+            console.warn('Impossible de sauvegarder le cache images:', e);
+        }
+    }
+
+    loadFromStorage() {
+        if (!this.enabled) return;
+        try {
+            const stored = localStorage.getItem('image_search_cache');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                this.cache = new Map(parsed);
+                this.cleanExpiredEntries();
+            }
+        } catch (e) {
+            console.warn('Impossible de charger le cache images:', e);
+            this.cache = new Map();
+        }
+    }
+
+    cleanExpiredEntries() {
+        if (!this.enabled) return;
+        const now = Date.now();
+        for (const [key, value] of this.cache) {
+            if (now - value.timestamp > this.cacheExpiry) {
+                this.cache.delete(key);
+            }
+        }
+    }
+
+    get(query, page) {
+        if (!this.enabled) return null; // Cache désactivé
+
+        const key = this.createKey(query, page);
+        const entry = this.cache.get(key);
+
+        if (!entry) return null;
+
+        if (Date.now() - entry.timestamp > this.cacheExpiry) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        return entry.data;
+    }
+
+    set(query, page, data) {
+        if (!this.enabled) return; // Cache désactivé
+
+        if (this.cache.size >= this.maxCacheSize) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+
+        const key = this.createKey(query, page);
+        this.cache.set(key, {
+            data: data,
+            timestamp: Date.now()
+        });
+
+        this.saveToStorage();
+    }
+
+    getStats() {
+        return {
+            size: this.enabled ? this.cache.size : 0,
+            maxSize: this.maxCacheSize,
+            enabled: this.enabled
+        };
+    }
+
+    clear() {
+        this.cache.clear();
+        localStorage.removeItem('image_search_cache');
+    }
+
+    enable() {
+        this.enabled = true;
+        this.loadFromStorage();
+    }
+
+    disable() {
+        this.enabled = false;
+        this.clear();
     }
 }
 
@@ -149,7 +246,7 @@ class ApiQuotaManager {
     }
 }
 
-// search.js — version complète, autonome
+// search.js — version complète, autonome avec caches séparés
 document.addEventListener('DOMContentLoaded', () => {
     // ========== Config & état ==========
     const RESULTS_PER_PAGE = 10;
@@ -157,13 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuery = '';
     let currentSort = ''; // '' (pertinence) ou 'date'
     let currentPage = 1;
-    const searchCache = new SearchCache();
+    const webCache = new WebSearchCache();
+    const imageCache = new ImageSearchCache(); // Cache images désactivé par défaut
     const quotaManager = new ApiQuotaManager();
 
     // ========== DOM refs ==========
     const searchInput = document.getElementById('searchInput');
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
-    const loadingEl = document.getElementById('loadingIndicator');    
+    const loadingEl = document.getElementById('loadingIndicator');
     const resultsContainer = document.getElementById('resultsContainer');
     const statsEl = document.getElementById('searchStats');
     const paginationEl = document.getElementById('pagination');
@@ -317,8 +415,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const apiUrl = buildApiUrl(query, type, page, currentSort);
         console.log('🔗 URL construite:', apiUrl);
 
-        console.log('✅ Vérification cache');
-        const cachedData = searchCache.get(query, page, type);
+        // Utilisation des caches séparés
+        let cachedData = null;
+        if (type === 'web') {
+            console.log('✅ Vérification cache WEB');
+            cachedData = webCache.get(query, page, currentSort);
+        } else if (type === 'images') {
+            console.log('✅ Vérification cache IMAGES (désactivé)');
+            cachedData = imageCache.get(query, page); // Retournera null car désactivé
+        }
+
         if (cachedData) {
             console.log('📦 Cache trouvé, affichage résultats');
             hideLoading();
@@ -326,6 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateQuotaDisplay();
             return;
         }
+
+        console.log('✅ Pas de cache, appel API pour type:', type);
 
         try {
             const res = await fetch(apiUrl);
@@ -339,7 +447,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             hideLoading();
 
-            searchCache.set(query, page, type, data);
+            // Sauvegarde dans le cache approprié
+            if (type === 'web') {
+                webCache.set(query, page, data, currentSort);
+                console.log('💾 Données sauvées dans cache WEB');
+            } else if (type === 'images') {
+                imageCache.set(query, page, data);
+                console.log('💾 Données PAS sauvées dans cache IMAGES (désactivé)');
+            }
+
             quotaManager.recordRequest();
             updateQuotaDisplay();
 
@@ -709,10 +825,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialisation
     if (document.getElementById('sortPanel')) setupSortOptions();
 
-    // Mettre à jour l'affichage du quota
+    // Mettre à jour l'affichage du quota avec les caches séparés
     function updateQuotaDisplay() {
         const usage = quotaManager.getUsage();
-        const cacheStats = searchCache.getStats();
+        const webStats = webCache.getStats();
+        const imageStats = imageCache.getStats();
 
         let quotaEl = document.getElementById('quotaIndicator');
         if (!quotaEl) {
@@ -736,7 +853,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
         quotaEl.innerHTML = `
         📊 API: <span style="color: ${quotaColor}">${usage.remaining}</span>/${usage.limit} | 
-        📋 Cache: ${cacheStats.size}/${cacheStats.maxSize}
+        📋 Web: ${webStats.size}/${webStats.maxSize} | 
+        🖼️ Images: ${imageStats.enabled ? imageStats.size + '/' + imageStats.maxSize : 'OFF'}
     `;
     }
+
+    // Mise à jour initiale de l'affichage du quota
+    updateQuotaDisplay();
 });
