@@ -16,17 +16,17 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 
 ## Fonctionnalités
 
-- 🎯 **Résultats filtrés** : Seuls les sites éducatifs approuvés apparaissent
-- 🔍 **Autocomplétion personnalisée** : Plus de 200 suggestions éducatives avec navigation clavier
-- 📚 **Sites recommandés** : Sélection de ressources pédagogiques de qualité
-- 🖼️ **Recherche d'images** : Mode de recherche d'images avec prévisualisation
-- 📖 **Encarts de connaissances** : Informations contextuelles depuis Vikidia pour enrichir les résultats
-- 🔄 **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
-- 📊 **Gestion du quota** : Surveillance automatique de l'utilisation de l'API Google
-- 🇫🇷🇬🇧 **Priorisation de la langue** : Détection automatique des requêtes en français ou en anglais pour de meilleurs résultats
-- 🔧 **Options de tri** : Tri par pertinence ou par date (pour les résultats web)
-- 📱 **Design responsive** : Fonctionne sur ordinateur, tablette et mobile
-- 🎨 **Interface enfant** : Design coloré et convivial avec icônes expressives
+- **Résultats filtrés** : Seuls les sites éducatifs approuvés apparaissent
+- **Autocomplétion personnalisée** : Plus de 200 suggestions éducatives avec navigation clavier
+- **Sites recommandés** : Sélection de ressources pédagogiques de qualité
+- **Recherche d'images** : Mode de recherche d'images avec prévisualisation
+- **Encarts de connaissances** : Informations contextuelles depuis Vikidia pour enrichir les résultats
+- **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
+- **Gestion du quota** : Surveillance automatique de l'utilisation de l'API Google
+- **Priorisation de la langue** : Détection automatique des requêtes en français ou en anglais pour de meilleurs résultats
+- **Options de tri** : Tri par pertinence ou par date (pour les résultats web)
+- **Design responsive** : Fonctionne sur ordinateur, tablette et mobile
+- **Interface enfant** : Design coloré et convivial avec icônes expressives
 
 ## Installation
 
@@ -159,12 +159,12 @@ Personnalisez les encarts de connaissances dans `config.js` :
 
 ## Sécurité et confidentialité
 
-- ✅ Tous les résultats sont filtrés par Google CSE
-- ✅ Seuls les sites pré-approuvés apparaissent
-- ✅ Pas de collecte de données personnelles
-- ✅ Cache local uniquement (pas de serveur tiers)
-- ✅ Interface dédiée aux enfants
-- ✅ Sources éducatives vérifiées (Vikidia)
+- Tous les résultats sont filtrés par Google CSE
+- Seuls les sites pré-approuvés apparaissent
+- Pas de collecte de données personnelles
+- Cache local uniquement (pas de serveur tiers)
+- Interface dédiée aux enfants
+- Sources éducatives vérifiées (Vikidia)
 
 ## Utilisation
 
