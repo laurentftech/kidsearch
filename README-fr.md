@@ -84,6 +84,9 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 6. Obtenez une clé API Google depuis [Google Cloud Console](https://console.cloud.google.com)
 7. Collez les identifiants dans `config.js`
 
+**🔒 Conseil de sécurité :** Restreignez votre clé API Google pour empêcher son utilisation non autorisée. Dans votre Google Cloud Console, sous "Identifiants", modifiez votre clé API et définissez les "Restrictions relatives aux applications" sur "Référents HTTP (sites web)". Ajoutez l'URL où vous hébergez le projet (ex: `votre-domaine.com/*`).
+**💡 Astuce :** Pour une recherche d'images beaucoup plus riche, ajoutez `commons.wikimedia.org` à votre liste de "Sites à rechercher". Wikimedia Commons est la médiathèque de Wikipédia et contient des millions d'images éducatives de haute qualité qui sont très bien indexées par Google.
+
 ## Structure des fichiers
 
 ```
@@ -163,6 +166,7 @@ Personnalisez les encarts de connaissances dans `config.js` :
 - Seuls les sites pré-approuvés apparaissent
 - Pas de collecte de données personnelles
 - Cache local uniquement (pas de serveur tiers)
+- Protection XSS : Le contenu des résultats est nettoyé avec DOMPurify pour bloquer le code malveillant.
 - Interface dédiée aux enfants
 - Sources éducatives vérifiées (Vikidia)
 

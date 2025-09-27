@@ -560,7 +560,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="result-content">
         <div class="result-url">${item.displayLink || ''}</div>
         <div class="result-title"><a href="${item.link || '#'}" target="_blank" rel="noopener noreferrer">${item.title || ''}</a></div>
-        <div class="result-snippet">${item.htmlSnippet || item.snippet || ''}</div>
+        <div class="result-snippet">${
+            // On nettoie le snippet HTML pour prévenir les attaques XSS
+            DOMPurify.sanitize(item.htmlSnippet || item.snippet || '')
+        }</div>
       </div>
     `;
         return resultDiv;

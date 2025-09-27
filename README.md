@@ -84,6 +84,9 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 6. Get a Google API key from [Google Cloud Console](https://console.cloud.google.com)
 7. Paste credentials in `config.js`
 
+**🔒 Security Tip:** Restrict your Google API key to prevent unauthorized use. In your Google Cloud Console, under "Credentials", edit your API key and set "Application restrictions" to "HTTP referrers (web sites)". Add the URL where you host the project (e.g., `your-domain.com/*`).
+**💡 Pro Tip:** For a much richer image search experience, add `commons.wikimedia.org` to your list of "Sites to search". Wikimedia Commons is the media library for Wikipedia and contains millions of high-quality educational images that are well-indexed by Google.
+
 ## File Structure
 
 ```
@@ -163,6 +166,7 @@ Customize knowledge panels in `config.js`:
 - Only pre-approved sites appear
 - No personal data collection
 - Local cache only (no third-party servers)
+- XSS Protection: Result content is sanitized with DOMPurify to block malicious code.
 - Child-dedicated interface
 - Verified educational sources (Vikidia)
 
