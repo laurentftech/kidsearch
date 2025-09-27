@@ -1,10 +1,14 @@
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=000000)](https://www.buymeacoffee.com/laurentftech)
+[![Démo Live](https://img.shields.io/badge/D%C3%A9mo_Live-4285F4?style=flat&logo=google-chrome&logoColor=white)](https://laurentftech.github.io/kidsearch) [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=000000)](https://www.buymeacoffee.com/laurentftech)
 
 # KidSearch 🔍
 
+**[➡️ Essayez la démo live !](https://laurentftech.github.io/kidsearch)**
+
 Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisant Google Custom Search Engine avec des résultats filtrés et des encarts de connaissances basés sur Vikidia.
 
-En l’utilisant avec Google Family Link (ou un autre système de liste blanche) sur Chrome, vous pouvez limiter l’accès à Internet aux seuls sites adaptés aux enfants que vous choisissez (et bloquer par exemple l’accès direct à google.com).
+C'est une solution idéale pour une **famille, une association ou une école** qui souhaite offrir un environnement de recherche contrôlé et sûr pour les enfants. À titre d'exemple, je l'héberge à la maison sur mon Synology pour offrir une recherche sécurisée à mes enfants.
+
+En l’utilisant combiné avec Google Family Link (ou tout autre système de liste blanche) sur Chrome, vous pouvez limiter l’accès à Internet aux seuls sites adaptés aux enfants que vous choisissez (et bloquer par exemple l’accès direct à google.com).
 
 ## Fonctionnalités
 
@@ -22,7 +26,7 @@ En l’utilisant avec Google Family Link (ou un autre système de liste blanche)
 
 ## Installation
 
-1. **Clonez le repository** :
+1. **Clonez le dépôt** :
    ```bash
    git clone [votre-repo]
    cd search-for-kids
@@ -33,7 +37,7 @@ En l’utilisant avec Google Family Link (ou un autre système de liste blanche)
    cp config.example.js config.js
    ```
 
-3. **Éditez `config.js`** avec votre ID Google Custom Search Engine, votre API key Google et la configuration des encarts :
+3. **Éditez `config.js`** avec votre ID Google Custom Search Engine, votre clé API Google et la configuration des encarts de connaissances :
    ```javascript
    const CONFIG = {
        GOOGLE_CSE_ID: 'votre_id_cse_ici',
@@ -50,15 +54,21 @@ En l’utilisant avec Google Family Link (ou un autre système de liste blanche)
    };
    ```
 
-4. **Lancez un serveur local** :
+4. **Hébergez les fichiers sur un serveur web** :
+   Ce projet est composé de fichiers statiques et peut être hébergé sur n'importe quel serveur web.
+
+   **Pour le développement local :**
+   Vous pouvez utiliser un simple serveur local.
    ```bash
-   # Python 3
+   # Avec Python 3
    python -m http.server 8000
    
-   # Ou utilisez Live Server dans VS Code
+   # Ou utilisez l'extension "Live Server" dans VS Code
    ```
+   Ensuite, ouvrez `http://localhost:8000` dans votre navigateur.
 
-5. **Accédez à** : `http://localhost:8000`
+   **Pour la production :**
+   Déployez les fichiers sur n'importe quel hébergeur web statique (par exemple, Synology Web Station, Caddy, Apache, Nginx, AWS, GitHub Pages, etc.).
 
 ## Configuration Google CSE
 
@@ -77,13 +87,16 @@ search-for-kids/
 ├── index.html              # Page d'accueil avec sites recommandés
 ├── results.html            # Page de résultats avec onglets web/images
 ├── search.js              # Moteur de recherche principal avec cache et quota
+├── loader.js              # Charge dynamiquement config.js
 ├── knowledge-panels.js    # Encarts de connaissances Vikidia
 ├── suggestions.json       # Base de données des suggestions d'autocomplétion
 ├── config.js             # Configuration (non commitée)
 ├── config.example.js     # Exemple de configuration
 ├── logo.png             # Logo du moteur de recherche
 ├── favicon.png          # Icône du site
-└── README.md            # Ce fichier
+├── README.md            # README en anglais
+├── README-fr.md         # Ce fichier
+└── LICENSE              # Licence MIT
 ```
 
 ## Fonctionnalités avancées
@@ -170,7 +183,7 @@ Personnalisez les encarts de connaissances dans `config.js` :
 
 1. Fork le projet
 2. Créez une branche (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commit vos changements (`git commit -m 'Ajout nouvelle fonctionnalité'`)
+3. Commit vos changements (`git commit -m '''Ajout nouvelle fonctionnalité'''`)
 4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
 5. Ouvrez une Pull Request
 

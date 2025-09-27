@@ -1,8 +1,12 @@
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=000000)](https://www.buymeacoffee.com/laurentftech)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-4285F4?style=flat&logo=google-chrome&logoColor=white)](https://laurentftech.github.io/kidsearch) [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=000000)](https://www.buymeacoffee.com/laurentftech)
 
 # KidSearch 🔍
 
+**[➡️ Try the Live Demo!](https://laurentftech.github.io/kidsearch)**
+
 A secure and educational search engine designed for children, using Google Custom Search Engine with filtered results and knowledge panels powered by Vikidia.
+
+It's an ideal solution for a **family, an association, or a school** that wants to offer a controlled and safe search environment for kids. For example, I run it at home on my Synology NAS to provide a secure search experience for my children.
 
 When combined with Google Family Link (or another whitelist system) on Chrome, you can restrict Internet access to child-friendly websites of your choice (and block direct access to google.com, for example).
 
@@ -50,15 +54,21 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
    };
    ```
 
-4. **Start a local server**:
+4. **Host the files on a web server**:
+   This project consists of static files and can be hosted on any web server.
+
+   **For local development:**
+   You can use a simple local server.
    ```bash
-   # Python 3
+   # With Python 3
    python -m http.server 8000
    
-   # Or use Live Server in VS Code
+   # Or use the "Live Server" extension in VS Code
    ```
+   Then, open `http://localhost:8000` in your browser.
 
-5. **Navigate to**: `http://localhost:8000`
+   **For production:**
+   Deploy the files on any static web host (e.g., Synology Web Station, Caddy, Apache, Nginx, AWS, GitHub Pages, etc.).
 
 ## Google CSE Configuration
 
@@ -77,13 +87,16 @@ search-for-kids/
 ├── index.html              # Homepage with recommended sites
 ├── results.html            # Results page with web/images tabs
 ├── search.js              # Main search engine with cache and quota
+├── loader.js              # Dynamically loads config.js
 ├── knowledge-panels.js    # Vikidia knowledge panels
 ├── suggestions.json       # Autocomplete suggestions database
 ├── config.js             # Configuration (not committed)
 ├── config.example.js     # Configuration example
 ├── logo.png             # Search engine logo
 ├── favicon.png          # Site icon
-└── README.md            # This file
+├── README.md            # This file
+├── README-fr.md         # French README
+└── LICENSE              # MIT License
 ```
 
 ## Advanced Features
@@ -170,7 +183,7 @@ Customize knowledge panels in `config.js`:
 
 1. Fork the project
 2. Create a branch (`git checkout -b feature/new-feature`)
-3. Commit your changes (`git commit -m 'Add new feature'`)
+3. Commit your changes (`git commit -m '''Add new feature'''`)
 4. Push to branch (`git push origin feature/new-feature`)
 5. Open a Pull Request
 
