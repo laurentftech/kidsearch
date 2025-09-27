@@ -16,17 +16,17 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 
 ## Features
 
-- 🎯 **Filtered results**: Only approved educational websites appear
-- 🔍 **Custom autocomplete**: 200+ educational suggestions with keyboard navigation
-- 📚 **Recommended sites**: Curated selection of quality educational resources
-- 🖼️ **Image search**: Image search mode with preview functionality
-- 📖 **Knowledge panels**: Contextual information from Vikidia to enrich results
-- 🔄 **Smart caching**: Intelligent caching system to optimize performance and save API quota
-- 📊 **Quota management**: Automatic monitoring of Google API usage
-- 🇫🇷🇬🇧 **Language prioritization**: Automatic detection of French or English queries for better results
-- 🔧 **Sort options**: Sort by relevance or date (for web results)
-- 📱 **Responsive design**: Works on desktop, tablet and mobile
-- 🎨 **Child-friendly interface**: Colorful and user-friendly design with expressive icons
+- **Filtered results**: Only approved educational websites appear
+- **Custom autocomplete**: 200+ educational suggestions with keyboard navigation
+- **Recommended sites**: Curated selection of quality educational resources
+- **Image search**: Image search mode with preview functionality
+- **Knowledge panels**: Contextual information from Vikidia to enrich results
+- **Smart caching**: Intelligent caching system to optimize performance and save API quota
+- **Quota management**: Automatic monitoring of Google API usage
+- **Language prioritization**: Automatic detection of French or English queries for better results
+- **Sort options**: Sort by relevance or date (for web results)
+- **Responsive design**: Works on desktop, tablet and mobile
+- **Child-friendly interface**: Colorful and user-friendly design with expressive icons
 
 ## Installation
 
@@ -159,12 +159,12 @@ Customize knowledge panels in `config.js`:
 
 ## Security and Privacy
 
-- ✅ All results are filtered by Google CSE
-- ✅ Only pre-approved sites appear
-- ✅ No personal data collection
-- ✅ Local cache only (no third-party servers)
-- ✅ Child-dedicated interface
-- ✅ Verified educational sources (Vikidia)
+- All results are filtered by Google CSE
+- Only pre-approved sites appear
+- No personal data collection
+- Local cache only (no third-party servers)
+- Child-dedicated interface
+- Verified educational sources (Vikidia)
 
 ## Usage
 
