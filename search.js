@@ -366,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Priorise les résultats en fonction de la langue détectée pour la recherche web
         if (type === 'web') {
+            url.searchParams.set('q', query + ' -site:wikimedia.org');
             const lang = detectQueryLanguage(query);
             if (lang === 'fr') {
                 console.log("🇫🇷 Requête en français détectée, application du filtre 'lang_fr'.");
