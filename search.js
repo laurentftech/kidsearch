@@ -565,14 +565,57 @@ document.addEventListener('DOMContentLoaded', () => {
         return resultDiv;
     }
 
-    // ========== Création d'une vignette image OPTIMISÉE ==========
+    // ========== Création d'une vignette image INTELLIGENTE ==========
     function createImageResult(item) {
         const div = document.createElement('div');
         div.className = 'image-result';
         div.onclick = () => openImageModal(item);
 
-        // Récupération de l'URL de l'image avec fallback
+        // Récupération des dimensions et URL de l'image
         const imgUrl = item.link || (item.image && item.image.thumbnailLink) || '';
+        const width = item.image ? parseInt(item.image.width) || 0 : 0;
+        const height = item.image ? parseInt(item.image.height) || 0 : 0;
+
+        // Détection intelligente du format
+        const aspectRatio = width && height ? width / height : 1;
+        let format = 'square'; // défaut
+        let gridSpan = 1; // colonnes occupées par défaut
+        let aspectRatioCSS = '1 / 1'; // aspect ratio par défaut
+
+        if (aspectRatio > 0) {
+            if (aspectRatio > 1.5) {
+                // Paysage large (ex: panorama)
+                format = 'landscape-wide';
+                gridSpan = 2;
+                aspectRatioCSS = '2 / 1';
+            } else if (aspectRatio > 1.2) {
+                // Paysage normal
+                format = 'landscape';
+                gridSpan = 1;
+                aspectRatioCSS = '4 / 3';
+            } else if (aspectRatio < 0.7) {
+                // Portrait étroit
+                format = 'portrait-tall';
+                gridSpan = 1;
+                aspectRatioCSS = '3 / 4';
+            } else if (aspectRatio < 0.9) {
+                // Portrait normal
+                format = 'portrait';
+                gridSpan = 1;
+                aspectRatioCSS = '3 / 4';
+            } else {
+                // Carré ou presque carré
+                format = 'square';
+                gridSpan = 1;
+                aspectRatioCSS = '1 / 1';
+            }
+        }
+
+        // Application des classes CSS pour le format
+        div.classList.add(`format-${format}`);
+        if (gridSpan > 1) {
+            div.style.gridColumn = `span ${gridSpan}`;
+        }
 
         // Création de l'image avec gestion de l'erreur de chargement
         const img = document.createElement('img');
@@ -580,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         img.alt = item.title || '';
         img.loading = 'lazy';
 
-        // Styles CSS intégrés pour forcer un affichage carré responsive
+        // Styles CSS adaptés selon le format
         img.style.cssText = `
             width: 100%;
             height: 100%;
@@ -595,12 +638,12 @@ document.addEventListener('DOMContentLoaded', () => {
             this.parentElement.style.display = 'none';
         };
 
-        // Conteneur de l'image avec dimensions fixes et responsive
+        // Conteneur de l'image avec aspect ratio adaptatif
         const imageContainer = document.createElement('div');
         imageContainer.style.cssText = `
             position: relative;
             width: 100%;
-            aspect-ratio: 1 / 1;
+            aspect-ratio: ${aspectRatioCSS};
             overflow: hidden;
             border-radius: 8px;
             margin-bottom: 8px;
@@ -651,6 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             background-color: white;
             overflow: hidden;
+            ${gridSpan > 1 ? `grid-column: span ${gridSpan};` : ''}
         `;
 
         // Effet au survol/touch
@@ -663,6 +707,24 @@ document.addEventListener('DOMContentLoaded', () => {
             this.style.transform = 'scale(1)';
             this.style.boxShadow = 'none';
         });
+
+        // Ajout d'un badge de format pour debug (optionnel)
+        if (window.location.search.includes('debug=1')) {
+            const badge = document.createElement('div');
+            badge.style.cssText = `
+                position: absolute;
+                top: 4px;
+                left: 4px;
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 2px 4px;
+                font-size: 10px;
+                border-radius: 3px;
+                z-index: 10;
+            `;
+            badge.textContent = `${format} (${width}×${height})`;
+            imageContainer.appendChild(badge);
+        }
 
         div.appendChild(imageContainer);
         div.appendChild(infoDiv);
@@ -1044,19 +1106,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mise à jour initiale de l'affichage du quota
     updateQuotaDisplay();
 
-    // ========== CSS dynamique pour grille d'images responsive ==========
+    // ========== CSS dynamique pour grille d'images responsive et intelligente ==========
     function injectResponsiveImageGridCSS() {
         if (document.getElementById('responsive-image-grid-styles')) return; // Évite les doublons
 
         const style = document.createElement('style');
         style.id = 'responsive-image-grid-styles';
         style.textContent = `
-            /* Grille responsive pour les images optimisée mobile */
+            /* Grille responsive intelligente pour les images */
             #resultsContainer.grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
                 gap: 12px;
                 padding: 16px 12px;
+                grid-auto-flow: row dense; /* Remplit les trous intelligemment */
             }
 
             /* Adaptations pour différentes tailles d'écran */
@@ -1066,12 +1129,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     gap: 8px;
                     padding: 12px 8px;
                 }
+                
+                /* Sur mobile, limite les images paysage à 2 colonnes max */
+                .image-result.format-landscape-wide {
+                    grid-column: span 2;
+                }
             }
 
             @media (min-width: 481px) and (max-width: 768px) {
                 #resultsContainer.grid {
                     grid-template-columns: repeat(3, 1fr);
                     gap: 10px;
+                }
+                
+                .image-result.format-landscape-wide {
+                    grid-column: span 2;
                 }
             }
 
@@ -1080,16 +1152,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     grid-template-columns: repeat(4, 1fr);
                     gap: 12px;
                 }
+                
+                .image-result.format-landscape-wide {
+                    grid-column: span 2;
+                }
             }
 
             @media (min-width: 1025px) {
                 #resultsContainer.grid {
-                    grid-template-columns: repeat(5, 1fr);
+                    grid-template-columns: repeat(6, 1fr);
                     gap: 14px;
+                }
+                
+                .image-result.format-landscape-wide {
+                    grid-column: span 2;
                 }
             }
 
-            /* Styles pour les résultats d'images */
+            /* Styles de base pour les résultats d'images */
             .image-result {
                 background: white;
                 border-radius: 8px;
@@ -1108,11 +1188,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 transition: transform 0.1s ease;
             }
 
-            /* Conteneur d'image avec aspect ratio fixe */
+            /* Styles spécifiques par format d'image */
+            .image-result.format-square {
+                /* Style par défaut - carré */
+            }
+
+            .image-result.format-landscape {
+                /* Paysage normal - ratio 4:3 */
+            }
+
+            .image-result.format-landscape-wide {
+                /* Paysage large - occupe 2 colonnes, ratio 2:1 */
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            }
+
+            .image-result.format-portrait {
+                /* Portrait normal - ratio 3:4 */
+                background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            }
+
+            .image-result.format-portrait-tall {
+                /* Portrait étroit - ratio 3:4 */
+                background: linear-gradient(180deg, #f1f3f4 0%, #e8eaed 100%);
+            }
+
+            /* Conteneur d'image adaptatif */
             .image-result .image-container {
                 position: relative;
                 width: 100%;
-                aspect-ratio: 1 / 1;
                 overflow: hidden;
                 background-color: #f8f9fa;
             }
@@ -1129,6 +1232,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .image-result:hover img {
                 transform: scale(1.05);
+            }
+
+            /* Styles d'image spéciaux selon le format */
+            .image-result.format-landscape-wide img {
+                object-fit: cover;
+                /* Pour les panoramas, on peut privilégier le centre horizontal */
+                object-position: center center;
+            }
+
+            .image-result.format-portrait img,
+            .image-result.format-portrait-tall img {
+                /* Pour les portraits, on peut privilégier le haut */
+                object-position: center top;
             }
 
             /* Informations de l'image */
@@ -1156,6 +1272,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 white-space: nowrap;
             }
 
+            /* Ajustements pour images larges */
+            .image-result.format-landscape-wide .image-title {
+                font-size: 13px;
+                -webkit-line-clamp: 3;
+            }
+
+            /* Indicateur visuel discret pour différents formats */
+            .image-result.format-landscape-wide::before {
+                content: "📐";
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                font-size: 12px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                z-index: 10;
+                background: rgba(255,255,255,0.9);
+                padding: 2px 4px;
+                border-radius: 4px;
+            }
+
+            .image-result.format-landscape-wide:hover::before {
+                opacity: 1;
+            }
+
             /* Optimisations tactiles pour mobile */
             @media (hover: none) and (pointer: coarse) {
                 .image-result {
@@ -1175,7 +1316,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     background-color: #f8f9fa;
                     transform: scale(0.98);
                 }
+
+                .image-result.format-landscape-wide::before {
+                    display: none;
+                }
             }
+
+            /* Animation d'apparition progressive */
+            .image-result {
+                animation: fadeInUp 0.4s ease forwards;
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            @keyframes fadeInUp {
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Délais échelonnés pour l'animation */
+            .image-result:nth-child(1) { animation-delay: 0.1s; }
+            .image-result:nth-child(2) { animation-delay: 0.2s; }
+            .image-result:nth-child(3) { animation-delay: 0.3s; }
+            .image-result:nth-child(4) { animation-delay: 0.4s; }
+            .image-result:nth-child(5) { animation-delay: 0.5s; }
+            .image-result:nth-child(n+6) { animation-delay: 0.6s; }
         `;
         document.head.appendChild(style);
     }
