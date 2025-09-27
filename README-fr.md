@@ -6,7 +6,7 @@
 
 Un moteur de recherche sécurisé et éducatif conçu pour les enfants, utilisant Google Custom Search Engine avec des résultats filtrés et des encarts de connaissances basés sur Vikidia.
 
-C'est une solution idéale pour une **famille, une association ou une école** qui souhaite offrir un environnement de recherche contrôlé et sûr pour les enfants. À titre d'exemple, je l'héberge à la maison sur mon Synology pour offrir une recherche sécurisée à mes enfants.
+C'est une solution idéale pour une **famille, une association ou une école** qui souhaite offrir un environnement de recherche contrôlé et sûr. Vous pouvez même le définir comme moteur de recherche par défaut dans le navigateur pour une expérience totalement intégrée. À titre d'exemple, je l'héberge à la maison sur mon Synology pour offrir une recherche sécurisée à mes enfants.
 
 En l’utilisant combiné avec Google Family Link (ou tout autre système de liste blanche) sur Chrome, vous pouvez limiter l’accès à Internet aux seuls sites adaptés aux enfants que vous choisissez (et bloquer par exemple l’accès direct à google.com).
 
@@ -178,6 +178,27 @@ Personnalisez les encarts de connaissances dans `config.js` :
 1. Cliquez sur "Outils" sous la barre de recherche
 2. Choisissez "Trier par date" pour les résultats récents
 3. Ou gardez "Pertinence" pour les meilleurs résultats
+
+## Contribution
+
+### Définir comme moteur de recherche par défaut
+
+Pour une intégration parfaite, vous pouvez définir KidSearch comme moteur de recherche par défaut dans Chrome, Edge ou tout autre navigateur basé sur Chromium.
+
+1.  Allez dans les **Paramètres** de votre navigateur.
+2.  Cherchez la section **Moteur de recherche**.
+3.  Cliquez sur **Gérer les moteurs de recherche et la recherche sur le site**.
+4.  À côté de "Recherche sur le site", cliquez sur **Ajouter**.
+5.  Remplissez les champs comme suit :
+    *   **Moteur de recherche** : `KidSearch`
+    *   **Raccourci** : `kid` (ou ce que vous voulez)
+    *   **URL avec %s à la place de la requête** : `https://VOTRE_URL/results.html?q=%s`
+        > Remplacez `https://VOTRE_URL` par l'adresse où vous hébergez le projet (ex: `http://localhost:8000` en local, ou l'adresse de votre serveur).
+
+6.  Cliquez sur **Ajouter**.
+7.  Trouvez `KidSearch` dans la liste, cliquez sur les trois points (⋮) à côté et sélectionnez **Utiliser par défaut**.
+
+Désormais, toutes les recherches effectuées depuis la barre d'adresse utiliseront KidSearch !
 
 ## Contribution
 

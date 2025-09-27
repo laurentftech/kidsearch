@@ -6,7 +6,7 @@
 
 A secure and educational search engine designed for children, using Google Custom Search Engine with filtered results and knowledge panels powered by Vikidia.
 
-It's an ideal solution for a **family, an association, or a school** that wants to offer a controlled and safe search environment for kids. For example, I run it at home on my Synology NAS to provide a secure search experience for my children.
+It's an ideal solution for a **family, an association, or a school** that wants to offer a controlled and safe search environment for kids. You can even set it as the default search engine in the browser for a fully integrated experience. For example, I run it at home on my Synology NAS to provide a secure search experience for my children.
 
 When combined with Google Family Link (or another whitelist system) on Chrome, you can restrict Internet access to child-friendly websites of your choice (and block direct access to google.com, for example).
 
@@ -178,6 +178,27 @@ Customize knowledge panels in `config.js`:
 1. Click "Tools" under the search bar
 2. Choose "Sort by date" for recent results
 3. Or keep "Relevance" for best results
+
+## Contribution
+
+### Set as Default Search Engine
+
+For a seamless experience, you can set KidSearch as the default search engine in Chrome, Edge, or any Chromium-based browser.
+
+1.  Go to your browser's **Settings**.
+2.  Find the **Search engine** section.
+3.  Click on **Manage search engines and site search**.
+4.  Next to "Site search," click **Add**.
+5.  Fill in the fields as follows:
+    *   **Search engine**: `KidSearch`
+    *   **Shortcut**: `kid` (or your preferred shortcut)
+    *   **URL with %s in place of query**: `https://YOUR_URL/results.html?q=%s`
+        > Replace `https://YOUR_URL` with the address where you host the project (e.g., `http://localhost:8000` for local use, or your server's address).
+
+6.  Click **Add**.
+7.  Find `KidSearch` in the list, click the three dots (⋮) next to it, and select **Make default**.
+
+Now, all searches from the address bar will use KidSearch!
 
 ## Contribution
 
