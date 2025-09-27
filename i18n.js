@@ -6,7 +6,7 @@ const translations = {
         homeTitle: "Search for Kids",
         homeDescription: "Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour tes exposés. Tape un mot ou une question et clique sur la loupe pour voir les résultats filtrés.",
         recommendedTitle: "📚 Sites recommandés pour tes recherches",
-        footerText: "Créé avec ❤️ pour l'éducation des enfants",
+        footerText: "Créé avec ❤️ par <a href=\"https://laurentftech.github.io\" target=\"_blank\" rel=\"noopener\">Laurent F.</a>",
         sites: [
             { url: "https://fr.vikidia.org/", icon: "📖", title: "Vikidia", desc: "L'encyclopédie des 8-13 ans" },
             { url: "https://www.1jour1actu.com/", icon: "📰", title: "1jour1actu", desc: "L'actualité à la portée des enfants" },
@@ -43,7 +43,7 @@ const translations = {
         homeTitle: "Search for Kids",
         homeDescription: "Use this search engine to find child-friendly information for your research and school projects. Type a word or question and click the magnifying glass to see filtered results.",
         recommendedTitle: "📚 Recommended sites for your research",
-        footerText: "Created with ❤️ for children's education",
+        footerText: "Created with ❤️ by <a href=\"https://laurentftech.github.io\" target=\"_blank\" rel=\"noopener\">Laurent F.</a>",
         sites: [
             { url: "https://kids.britannica.com/", icon: "🌍", title: "Britannica Kids", desc: "Reference encyclopedia for children" },
             { url: "https://www.natgeokids.com/", icon: "🌎", title: "Nat Geo Kids", desc: "Geography, science, and nature" },
@@ -113,7 +113,7 @@ class I18nManager {
             if (attr) {
                 el.setAttribute(attr, this.get(key));
             } else {
-                el.textContent = this.get(key);
+                el.innerHTML = this.get(key); // Utiliser innerHTML pour interpréter les balises
             }
         });
     }
