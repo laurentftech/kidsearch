@@ -90,7 +90,7 @@ class ImageSearchCache {
         this.cache = new Map();
         this.maxCacheSize = 100;
         this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
-        this.enabled = false; // DÉSACTIVÉ pour l'instant
+        this.enabled = true; // DÉSACTIVÉ pour l'instant
         if (this.enabled) {
             this.loadFromStorage();
         }
@@ -327,11 +327,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function isFrenchQuery(query) {
-        // Contient des caractères accentués français ou des mots courants
+    /**
+     * Détecte la langue d'une requête (français ou anglais).
+     * @param {string} query La chaîne de recherche.
+     * @returns {('fr'|'en'|null)} Le code de langue détecté ou null.
+     */
+    function detectQueryLanguage(query) {
+        const lowerQuery = query.toLowerCase();
+
+        // Le français est prioritaire à cause des accents qui sont un indicateur fort.
         const frenchChars = /[àâçéèêëîïôûùüÿœæ]/i;
         const commonFrenchWords = /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i;
-        return frenchChars.test(query) || commonFrenchWords.test(query);
+        if (frenchChars.test(lowerQuery) || commonFrenchWords.test(lowerQuery)) {
+            return 'fr';
+        }
+
+        // Détection de l'anglais avec des mots courants peu probables en français.
+        const commonEnglishWords = /\b(the|and|for|what|who|are|of|in|to|it|is)\b/i;
+        if (commonEnglishWords.test(lowerQuery)) {
+            return 'en';
+        }
+
+        return null; // Langue non détectée
     }
 
     function buildApiUrl(query, type, page, sort) {
@@ -347,10 +364,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'images') url.searchParams.set('searchType', 'image');
         if (sort) url.searchParams.set('sort', sort);
 
-        // Priorise les résultats en français si la requête semble être en français
-        if (isFrenchQuery(query) && type === 'web') {
-            console.log("🇫🇷 Requête en français, application du filtre de langue 'lang_fr' pour la recherche web.");
-            url.searchParams.set('lr', 'lang_fr');
+        // Priorise les résultats en fonction de la langue détectée pour la recherche web
+        if (type === 'web') {
+            const lang = detectQueryLanguage(query);
+            if (lang === 'fr') {
+                console.log("🇫🇷 Requête en français détectée, application du filtre 'lang_fr'.");
+                url.searchParams.set('lr', 'lang_fr');
+            } else if (lang === 'en') {
+                console.log("🇬🇧 Requête en anglais détectée, application du filtre 'lang_en'.");
+                url.searchParams.set('lr', 'lang_en');
+            }
         }
 
         return url.toString();
@@ -375,7 +398,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Donne le focus au bouton pour indiquer l'action et fermer le clavier sur mobile
             const searchButton = document.getElementById('searchButton');
             if (searchButton) searchButton.focus();
-            window.location.href = `results.html?q=${encodeURIComponent(q)}`;
+
+            // Construit la nouvelle URL en préservant le mode développeur
+            let newUrl = `results.html?q=${encodeURIComponent(q)}`;
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('dev')) {
+                newUrl += '&dev=1';
+            }
+            window.location.href = newUrl;
             return;
         }
 
@@ -535,22 +565,108 @@ document.addEventListener('DOMContentLoaded', () => {
         return resultDiv;
     }
 
-    // ========== Création d'une vignette image ==========
+    // ========== Création d'une vignette image OPTIMISÉE ==========
     function createImageResult(item) {
         const div = document.createElement('div');
         div.className = 'image-result';
         div.onclick = () => openImageModal(item);
 
-        // item.link is usually the direct image URL in CSE image results
+        // Récupération de l'URL de l'image avec fallback
         const imgUrl = item.link || (item.image && item.image.thumbnailLink) || '';
 
-        div.innerHTML = `
-      <img src="${imgUrl}" alt="${item.title || ''}" loading="lazy" onerror="this.parentElement.style.display='none'">
-      <div class="image-info">
-        <div class="image-title">${item.title || ''}</div>
-        <div class="image-source">${item.displayLink || ''}</div>
-      </div>
-    `;
+        // Création de l'image avec gestion de l'erreur de chargement
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = item.title || '';
+        img.loading = 'lazy';
+
+        // Styles CSS intégrés pour forcer un affichage carré responsive
+        img.style.cssText = `
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+            border-radius: 8px;
+        `;
+
+        // Gestion de l'erreur de chargement
+        img.onerror = function() {
+            this.parentElement.style.display = 'none';
+        };
+
+        // Conteneur de l'image avec dimensions fixes et responsive
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = `
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+        `;
+
+        imageContainer.appendChild(img);
+
+        // Informations de l'image
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'image-info';
+        infoDiv.style.cssText = `
+            padding: 4px 0;
+        `;
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'image-title';
+        titleDiv.textContent = item.title || '';
+        titleDiv.style.cssText = `
+            font-size: 12px;
+            line-height: 1.3;
+            color: #202124;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin-bottom: 2px;
+        `;
+
+        const sourceDiv = document.createElement('div');
+        sourceDiv.className = 'image-source';
+        sourceDiv.textContent = item.displayLink || '';
+        sourceDiv.style.cssText = `
+            font-size: 11px;
+            color: #70757a;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        `;
+
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(sourceDiv);
+
+        // Styles pour le conteneur principal
+        div.style.cssText = `
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background-color: white;
+            overflow: hidden;
+        `;
+
+        // Effet au survol/touch
+        div.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.02)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        });
+
+        div.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = 'none';
+        });
+
+        div.appendChild(imageContainer);
+        div.appendChild(infoDiv);
+
         return div;
     }
 
@@ -848,8 +964,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialisation
     if (document.getElementById('sortPanel')) setupSortOptions();
 
-    // Mettre à jour l'affichage du quota avec les caches séparés
+// =========================================================================
+// QUOTA DISPLAY (avec mode développeur activé via ?dev=1)
+// =========================================================================
+
+// Détection du mode développeur
+    // =========================================================================
+// QUOTA DISPLAY (avec mode développeur activé via ?dev=1)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDevMode = urlParams.has('dev');
+
     function updateQuotaDisplay() {
+        if (!isDevMode) {
+            const quotaEl = document.getElementById('quotaIndicator');
+            if (quotaEl) quotaEl.remove(); // supprime si déjà affiché
+            return;
+        }
+
         const usage = quotaManager.getUsage();
         const webStats = webCache.getStats();
         const imageStats = imageCache.getStats();
@@ -868,6 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
             padding: 8px 12px;
             font-size: 12px;
             color: #70757a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
             z-index: 1000;
         `;
             document.body.appendChild(quotaEl);
@@ -875,12 +1007,179 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
         quotaEl.innerHTML = `
-        📊 API: <span style="color: ${quotaColor}">${usage.remaining}</span>/${usage.limit} | 
-        📋 Web: ${webStats.size}/${webStats.maxSize} | 
-        🖼️ Images: ${imageStats.enabled ? imageStats.size + '/' + imageStats.maxSize : 'OFF'}
+        📊 API: <span style="color:${quotaColor}">${usage.remaining}</span>/${usage.limit} |
+        📋 Web: ${webStats.size}/${webStats.maxSize} |
+        🖼️ Images: ${imageStats.enabled ? imageStats.size + '/' + imageStats.maxSize : 'OFF'} |
+        <button id="devClearBtn" style="
+            margin-left:8px;
+            background:#fff;
+            border:1px solid #ccc;
+            border-radius:4px;
+            padding:2px 6px;
+            cursor:pointer;
+        ">🗑️ Vider les caches</button>
     `;
+
+        // Ajout du bouton effacer cache
+        const clearBtn = document.getElementById('devClearBtn');
+        if (clearBtn && !clearBtn.dataset.listenerAttached) {
+            clearBtn.onclick = () => {
+                if (confirm("Effacer cache et quotas ?")) {
+                    try {
+                        webCache.clear();
+                        imageCache.clear();
+                        localStorage.removeItem('api_usage');
+                    } catch (e) {
+                        console.warn("Erreur lors du clear cache:", e);
+                    }
+                    alert("Caches vidés. Rechargement...");
+                    window.location.reload();
+                }
+            };
+            clearBtn.dataset.listenerAttached = 'true';
+        }
     }
+
 
     // Mise à jour initiale de l'affichage du quota
     updateQuotaDisplay();
+
+    // ========== CSS dynamique pour grille d'images responsive ==========
+    function injectResponsiveImageGridCSS() {
+        if (document.getElementById('responsive-image-grid-styles')) return; // Évite les doublons
+
+        const style = document.createElement('style');
+        style.id = 'responsive-image-grid-styles';
+        style.textContent = `
+            /* Grille responsive pour les images optimisée mobile */
+            #resultsContainer.grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 12px;
+                padding: 16px 12px;
+            }
+
+            /* Adaptations pour différentes tailles d'écran */
+            @media (max-width: 480px) {
+                #resultsContainer.grid {
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 8px;
+                    padding: 12px 8px;
+                }
+            }
+
+            @media (min-width: 481px) and (max-width: 768px) {
+                #resultsContainer.grid {
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 10px;
+                }
+            }
+
+            @media (min-width: 769px) and (max-width: 1024px) {
+                #resultsContainer.grid {
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 12px;
+                }
+            }
+
+            @media (min-width: 1025px) {
+                #resultsContainer.grid {
+                    grid-template-columns: repeat(5, 1fr);
+                    gap: 14px;
+                }
+            }
+
+            /* Styles pour les résultats d'images */
+            .image-result {
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                transition: all 0.2s ease;
+                cursor: pointer;
+            }
+
+            .image-result:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+
+            .image-result:active {
+                transform: translateY(0);
+                transition: transform 0.1s ease;
+            }
+
+            /* Conteneur d'image avec aspect ratio fixe */
+            .image-result .image-container {
+                position: relative;
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                overflow: hidden;
+                background-color: #f8f9fa;
+            }
+
+            /* Image responsive et centrée */
+            .image-result img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: center;
+                display: block;
+                transition: transform 0.3s ease;
+            }
+
+            .image-result:hover img {
+                transform: scale(1.05);
+            }
+
+            /* Informations de l'image */
+            .image-result .image-info {
+                padding: 8px;
+            }
+
+            .image-result .image-title {
+                font-size: 12px;
+                line-height: 1.3;
+                color: #202124;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                margin-bottom: 4px;
+                word-break: break-word;
+            }
+
+            .image-result .image-source {
+                font-size: 11px;
+                color: #70757a;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Optimisations tactiles pour mobile */
+            @media (hover: none) and (pointer: coarse) {
+                .image-result {
+                    transition: none;
+                }
+                
+                .image-result:hover {
+                    transform: none;
+                    box-shadow: none;
+                }
+                
+                .image-result:hover img {
+                    transform: none;
+                }
+                
+                .image-result:active {
+                    background-color: #f8f9fa;
+                    transform: scale(0.98);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Injecter les styles CSS au chargement
+    injectResponsiveImageGridCSS();
 });
