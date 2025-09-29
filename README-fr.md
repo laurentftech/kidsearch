@@ -20,13 +20,15 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 - **Autocomplétion personnalisée** : Plus de 200 suggestions éducatives avec navigation clavier
 - **Sites recommandés** : Sélection de ressources pédagogiques de qualité
 - **Recherche d'images** : Mode de recherche d'images avec prévisualisation
-- **Encarts de connaissances** : Informations contextuelles depuis Vikidia pour enrichir les résultats
+- **Encarts de connaissances** : Informations contextuelles depuis Vikidia, Wikipédia et Wikimedia Commons pour enrichir les résultats
 - **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
 - **Gestion du quota** : Surveillance automatique de l'utilisation de l'API Google
 - **Priorisation de la langue** : Détection automatique des requêtes en français ou en anglais pour de meilleurs résultats
 - **Options de tri** : Tri par pertinence ou par date (pour les résultats web)
 - **Design responsive** : Fonctionne sur ordinateur, tablette et mobile
 - **Interface enfant** : Design coloré et convivial avec icônes expressives
+- **Suggestions en cas d'absence de résultats**: Propose des requêtes alternatives lorsque aucun résultat n'est trouvé
+- **Pagination optimisée**: Affiche la pagination de manière efficace pour une expérience plus fluide
 
 ## Installation
 
@@ -93,6 +95,7 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 search-for-kids/
 ├── index.html              # Page d'accueil avec sites recommandés
 ├── results.html            # Page de résultats avec onglets web/images
+├── style.css               # Feuille de style principale
 ├── search.js              # Moteur de recherche principal avec cache et quota
 ├── loader.js              # Charge dynamiquement config.js
 ├── knowledge-panels.js    # Encarts de connaissances Vikidia
@@ -119,7 +122,7 @@ search-for-kids/
 - **Protection** : Évite le dépassement accidentel des limites Google
 
 ### Encarts de connaissances
-- **Source éducative** : Intégration avec l'API de Vikidia pour des informations adaptées aux enfants
+- **Source éducative** : Intégration avec l'API de Vikidia, Wikipédia et Wikimedia Commons pour des informations adaptées aux enfants
 - **Recherche intelligente** : Essai de plusieurs variantes (singulier/pluriel, casse, accents)
 - **Filtrage pertinent** : Affichage uniquement pour les requêtes éducatives appropriées
 
@@ -155,7 +158,7 @@ Personnalisez les encarts de connaissances dans `config.js` :
 ## Technologies utilisées
 
 - **Frontend** : HTML5/CSS3, JavaScript ES6+
-- **APIs** : Google Custom Search Engine API, MediaWiki API (Vikidia)
+- **APIs** : Google Custom Search Engine API, MediaWiki API (Vikidia, Wikipédia)
 - **Stockage** : localStorage pour le cache et la gestion du quota
 - **Design** : CSS Grid/Flexbox, design responsive
 - **Fonctionnalités** : Autocomplétion, modal d'images, pagination, tri
@@ -168,7 +171,7 @@ Personnalisez les encarts de connaissances dans `config.js` :
 - Cache local uniquement (pas de serveur tiers)
 - Protection XSS : Le contenu des résultats est nettoyé avec DOMPurify pour bloquer le code malveillant.
 - Interface dédiée aux enfants
-- Sources éducatives vérifiées (Vikidia)
+- Sources éducatives vérifiées (Vikidia, Wikipédia)
 
 ## Utilisation
 

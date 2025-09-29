@@ -416,13 +416,65 @@ async function fetchWikimediaCommonsResults(query) {
     return [];
 }
 
-function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults) {
+function calculateLexicalScore(item, query) {
+    const title = (item.title || '').toLowerCase();
+    const snippet = (item.snippet || '').toLowerCase();
+    const lowerQuery = query.toLowerCase().trim();
+
+    if (!lowerQuery) return 0;
+
+    // Utiliser une expression régulière pour diviser en mots, en gérant les caractères spéciaux
+    const queryWords = lowerQuery.split(/[\s,.:;!?]+/).filter(w => w.length > 1);
+
+    let score = 0;
+
+    // Bonus 1: La requête exacte est dans le titre (poids le plus fort)
+    if (title.includes(lowerQuery)) {
+        score += 1.0;
+    }
+    // Bonus 2: Tous les mots de la requête sont dans le titre
+    // On vérifie `else if` pour ne pas cumuler avec le bonus 1 si la requête exacte est trouvée
+    else if (queryWords.length > 1 && queryWords.every(word => title.includes(word))) {
+        score += 0.5;
+    }
+
+    // Bonus 3: Le titre commence par la requête (très pertinent)
+    if (title.startsWith(lowerQuery)) {
+        score += 0.4;
+    }
+
+    // Bonus 4: Tous les mots de la requête sont dans le snippet (pour les résultats web)
+    if (snippet && queryWords.length > 1 && queryWords.every(word => snippet.includes(word))) {
+        score += 0.2;
+    }
+
+    return score;
+}
+
+function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, query) {
     let allResults = [];
     const googleWeight = 1.0;
-    allResults = allResults.concat(googleResults.map((item, index) => ({ ...item, source: 'Google', originalIndex: index, calculatedWeight: googleWeight * (1 - (index / googleResults.length / 2)) })));
-    vikidiaResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / vikidiaResults.length / 2)) }); });
-    wikipediaResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / wikipediaResults.length / 2)) }); });
+
+    allResults = allResults.concat(googleResults.map((item, index) => {
+        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        return { ...item, source: 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
+    }));
+
+    vikidiaResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / vikidiaResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
+    wikipediaResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / wikipediaResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+    
     const uniqueResults = [];
     const seenLinks = new Set();
     for (const result of allResults) {
@@ -434,12 +486,24 @@ function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults) 
     return uniqueResults;
 }
 
-function mergeAndWeightImageResults(googleResults, commonsResults) {
+function mergeAndWeightImageResults(googleResults, commonsResults, query) {
     let allResults = [];
     const googleWeight = 1.0;
-    allResults = allResults.concat(googleResults.map((item, index) => ({ ...item, source: 'Google', originalIndex: index, calculatedWeight: googleWeight * (1 - (index / googleResults.length / 2)) })));
-    commonsResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / commonsResults.length / 2)) }); });
+
+    allResults = allResults.concat(googleResults.map((item, index) => {
+        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query); // Réutilise la même fonction
+        return { ...item, source: 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
+    }));
+
+    commonsResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / commonsResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+    
     const uniqueResults = [];
     const seenLinks = new Set();
     for (const result of allResults) {
@@ -505,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newUrl = new URL(window.location);
             newUrl.searchParams.set('q', query);
             newUrl.searchParams.set('type', type);
-            if (page > 1) newUrl.searchParams.set('p', page); else newUrl.searchParams.delete('p');
+            if (page > 1) newUrl.searchParams.set('p', String(page)); else newUrl.searchParams.delete('p');
             if (sort) newUrl.searchParams.set('sort', sort); else newUrl.searchParams.delete('sort');
             window.history.pushState({}, '', newUrl);
         } catch (e) { /* ignore */ }
@@ -584,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function performSearch(query, type = 'web', page = 1) {
+    async function performSearch(query, type = 'web', page = 1, sort = '') {
         if (!query) return;
         showLoading();
         resultsContainer.innerHTML = '';
@@ -595,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tryDisplayKnowledgePanel(query);
         }
 
-        let cachedData = (type === 'web') ? webCache.get(query, page, currentSort) : imageCache.get(query, page);
+        let cachedData = (type === 'web') ? webCache.get(query, page, sort) : imageCache.get(query, page);
         if (cachedData) {
             hideLoading();
             displayResults(cachedData, type, query, page);
@@ -609,21 +673,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Détecte la langue, sinon utilise la langue de l'interface comme secours.
                 const lang = detectQueryLanguage(query) || i18n.getLang();
                 const [googleResponse, vikidiaResults, wikipediaResults] = await Promise.all([
-                    fetch(buildGoogleCseApiUrl(query, type, page, currentSort)).then(res => res.json()),
+                    fetch(buildGoogleCseApiUrl(query, type, page, sort)).then(res => res.json()),
                     fetchVikidiaResults(query, lang),
                     fetchWikipediaResults(query, lang)
                 ]);
                 if (googleResponse.error) throw new Error(googleResponse.error.message);
-                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults);
+                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults, query);
                 combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
-                webCache.set(query, page, combinedData, currentSort);
+                webCache.set(query, page, combinedData, sort);
             } else { // Images
                 const [googleResponse, commonsResults] = await Promise.all([
-                    fetch(buildGoogleCseApiUrl(query, type, page, currentSort)).then(res => res.json()),
+                    fetch(buildGoogleCseApiUrl(query, type, page, sort)).then(res => res.json()),
                     fetchWikimediaCommonsResults(query)
                 ]);
                 if (googleResponse.error) throw new Error(googleResponse.error.message);
-                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults);
+                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults, query);
                 combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
                 imageCache.set(query, page, combinedData);
             }

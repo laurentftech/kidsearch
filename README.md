@@ -20,13 +20,15 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 - **Custom autocomplete**: 200+ educational suggestions with keyboard navigation
 - **Recommended sites**: Curated selection of quality educational resources
 - **Image search**: Image search mode with preview functionality
-- **Knowledge panels**: Contextual information from Vikidia to enrich results
+- **Knowledge panels**: Contextual information from Vikidia, Wikipedia, and Wikimedia Commons to enrich results
 - **Smart caching**: Intelligent caching system to optimize performance and save API quota
 - **Quota management**: Automatic monitoring of Google API usage
 - **Language prioritization**: Automatic detection of French or English queries for better results
 - **Sort options**: Sort by relevance or date (for web results)
 - **Responsive design**: Works on desktop, tablet and mobile
 - **Child-friendly interface**: Colorful and user-friendly design with expressive icons
+- **No-results suggestions**: Suggests alternative queries when no results are found
+- **Optimized pagination**: Efficiently renders pagination for a smoother experience
 
 ## Installation
 
@@ -93,6 +95,7 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 search-for-kids/
 ├── index.html              # Homepage with recommended sites
 ├── results.html            # Results page with web/images tabs
+├── style.css               # Main stylesheet
 ├── search.js              # Main search engine with cache and quota
 ├── loader.js              # Dynamically loads config.js
 ├── knowledge-panels.js    # Vikidia knowledge panels
@@ -119,7 +122,7 @@ search-for-kids/
 - **Protection**: Prevents accidental exceeding of Google limits
 
 ### Knowledge Panels
-- **Educational source**: Integration with Vikidia API for child-appropriate information
+- **Educational source**: Integration with Vikidia, Wikipedia, and Wikimedia Commons for child-appropriate information
 - **Smart search**: Tries multiple variants (singular/plural, case, accents)
 - **Relevant filtering**: Only displays for appropriate educational queries
 
@@ -155,7 +158,7 @@ Customize knowledge panels in `config.js`:
 ## Technologies Used
 
 - **Frontend**: HTML5/CSS3, JavaScript ES6+
-- **APIs**: Google Custom Search Engine API, MediaWiki API (Vikidia)
+- **APIs**: Google Custom Search Engine API, MediaWiki API (Vikidia, Wikipedia)
 - **Storage**: localStorage for cache and quota management
 - **Design**: CSS Grid/Flexbox, responsive design
 - **Features**: Autocomplete, image modal, pagination, sorting
@@ -168,7 +171,7 @@ Customize knowledge panels in `config.js`:
 - Local cache only (no third-party servers)
 - XSS Protection: Result content is sanitized with DOMPurify to block malicious code.
 - Child-dedicated interface
-- Verified educational sources (Vikidia)
+- Verified educational sources (Vikidia, Wikipedia)
 
 ## Usage
 
