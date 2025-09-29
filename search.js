@@ -1,3 +1,7 @@
+// search.js — version complète, autonome avec caches séparés
+// IMPORTANT: Assurez-vous que votre fichier config.js (ou config.demo.js)
+// contient les configurations pour Vikidia, Wikipedia et Wikimedia Commons.
+
 // Classes de cache séparées
 class WebSearchCache {
     constructor() {
@@ -90,7 +94,7 @@ class ImageSearchCache {
         this.cache = new Map();
         this.maxCacheSize = 100;
         this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
-        this.enabled = true; // DÉSACTIVÉ pour l'instant
+        this.enabled = true;
         if (this.enabled) {
             this.loadFromStorage();
         }
@@ -136,7 +140,7 @@ class ImageSearchCache {
     }
 
     get(query, page) {
-        if (!this.enabled) return null; // Cache désactivé
+        if (!this.enabled) return null;
 
         const key = this.createKey(query, page);
         const entry = this.cache.get(key);
@@ -152,7 +156,7 @@ class ImageSearchCache {
     }
 
     set(query, page, data) {
-        if (!this.enabled) return; // Cache désactivé
+        if (!this.enabled) return;
 
         if (this.cache.size >= this.maxCacheSize) {
             const firstKey = this.cache.keys().next().value;
@@ -246,19 +250,217 @@ class ApiQuotaManager {
     }
 }
 
-// search.js — version complète, autonome avec caches séparés
+async function fetchVikidiaResults(query, lang = 'fr') {
+    if (typeof CONFIG === 'undefined' || !CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) {
+        return [];
+    }
+    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.VIKIDIA_SEARCH_CONFIG;
+    const apiUrl = API_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
+    const baseUrl = BASE_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
+    const searchParams = { action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' };
+    const searchUrl = new URL(apiUrl);
+    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
+
+    try {
+        const searchRes = await fetch(searchUrl.toString());
+        const searchData = await searchRes.json();
+        if (!searchData.query?.search?.length) return [];
+
+        const searchResults = searchData.query.search;
+        const titles = searchResults.map(item => item.title).join('|');
+
+        const thumbParams = { action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const thumbUrl = new URL(apiUrl);
+        Object.keys(thumbParams).forEach(key => thumbUrl.searchParams.append(key, thumbParams[key]));
+
+        const thumbRes = await fetch(thumbUrl.toString());
+        const thumbData = await thumbRes.json();
+        const thumbMap = {};
+        if (thumbData.query?.pages) {
+            Object.values(thumbData.query.pages).forEach(page => {
+                if (page.thumbnail) thumbMap[page.title] = page.thumbnail.source;
+            });
+        }
+
+        return searchResults.map(item => {
+            const result = {
+                title: item.title,
+                link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
+                displayLink: new URL(baseUrl).hostname,
+                snippet: item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, ''),
+                htmlSnippet: item.snippet,
+                source: SOURCE_NAME,
+                weight: WEIGHT || 0.5
+            };
+            if (thumbMap[item.title]) {
+                result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
+            }
+            return result;
+        });
+    } catch (error) { console.error('Error fetching Vikidia results:', error); }
+    return [];
+}
+
+async function fetchWikipediaResults(query, lang = 'fr') {
+    if (typeof CONFIG === 'undefined' || !CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) {
+        return [];
+    }
+    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.WIKIPEDIA_SEARCH_CONFIG;
+    const apiUrl = API_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
+    const baseUrl = BASE_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
+    const searchParams = { action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' };
+    const searchUrl = new URL(apiUrl);
+    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
+
+    try {
+        const searchRes = await fetch(searchUrl.toString());
+        const searchData = await searchRes.json();
+        if (!searchData.query?.search?.length) return [];
+
+        const searchResults = searchData.query.search;
+        const titles = searchResults.map(item => item.title).join('|');
+
+        const thumbParams = { action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const thumbUrl = new URL(apiUrl);
+        Object.keys(thumbParams).forEach(key => thumbUrl.searchParams.append(key, thumbParams[key]));
+
+        const thumbRes = await fetch(thumbUrl.toString());
+        const thumbData = await thumbRes.json();
+        const thumbMap = {};
+        if (thumbData.query?.pages) {
+            Object.values(thumbData.query.pages).forEach(page => {
+                if (page.thumbnail) thumbMap[page.title] = page.thumbnail.source;
+            });
+        }
+
+        return searchResults.map(item => {
+            const result = {
+                title: item.title,
+                link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
+                displayLink: new URL(baseUrl).hostname,
+                snippet: item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, ''),
+                htmlSnippet: item.snippet,
+                source: SOURCE_NAME,
+                weight: WEIGHT || 0.5
+            };
+            if (thumbMap[item.title]) {
+                result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
+            }
+            return result;
+        });
+    } catch (error) { console.error('Error fetching Wikipedia results:', error); }
+    return [];
+}
+
+async function fetchWikimediaCommonsResults(query) {
+    if (typeof CONFIG === 'undefined' || !CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
+        return [];
+    }
+    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.COMMONS_IMAGE_SEARCH_CONFIG;
+
+    // Catégories à exclure pour un public jeune.
+    // Le préfixe `-incategory:` exclut les fichiers de ces catégories.
+    const excludedCategories = [
+        "Nudity in art", "Erotic art", "Sexual activity", "Violence", "Deaths", "Human corpses"
+    ];
+    const exclusionQuery = excludedCategories.map(cat => `-incategory:"${cat}"`).join(' ');
+    const finalQuery = `${query} ${exclusionQuery}`;
+
+    const searchParams = {
+        action: 'query',
+        format: 'json',
+        list: 'search',
+        srsearch: finalQuery, // Utilise la requête avec exclusions
+        srnamespace: 6,       // Espace de nom "File"
+        srlimit: 10,          // Limite de résultats
+        srwhat: 'text',       // Rechercher dans le texte pour de meilleurs résultats
+        origin: '*'
+    };
+    const searchUrl = new URL(API_URL);
+    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
+
+    try {
+        const searchRes = await fetch(searchUrl.toString());
+        const searchData = await searchRes.json();
+        if (!searchData.query?.search?.length) return [];
+
+        const titles = searchData.query.search.map(item => item.title).join('|');
+        const infoParams = { action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|size|extmetadata', iiurlwidth: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const infoUrl = new URL(API_URL);
+        Object.keys(infoParams).forEach(key => infoUrl.searchParams.append(key, infoParams[key]));
+
+        const infoRes = await fetch(infoUrl.toString());
+        const infoData = await infoRes.json();
+        if (!infoData.query?.pages) return [];
+
+        return Object.values(infoData.query.pages).map(page => {
+            if (!page.imageinfo?.[0]) return null;
+            const img = page.imageinfo[0];
+            const title = page.title.replace('File:', '').replace(/\.[^/.]+$/, "");
+
+            return {
+                title: title,
+                link: img.url, // Utiliser l'URL de l'image originale pour le clic
+                displayLink: new URL(BASE_URL).hostname,
+                source: SOURCE_NAME,
+                weight: WEIGHT || 0.7,
+                image: {
+                    contextLink: img.descriptionurl,
+                    thumbnailLink: img.thumburl,
+                    width: img.thumbwidth,
+                    height: img.thumbheight
+                }
+            };
+        }).filter(item => item !== null);
+    } catch (error) { console.error('Error fetching Wikimedia Commons results:', error); }
+    return [];
+}
+
+function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults) {
+    let allResults = [];
+    const googleWeight = 1.0;
+    allResults = allResults.concat(googleResults.map((item, index) => ({ ...item, source: 'Google', originalIndex: index, calculatedWeight: googleWeight * (1 - (index / googleResults.length / 2)) })));
+    vikidiaResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / vikidiaResults.length / 2)) }); });
+    wikipediaResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / wikipediaResults.length / 2)) }); });
+    allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+    const uniqueResults = [];
+    const seenLinks = new Set();
+    for (const result of allResults) {
+        if (!seenLinks.has(result.link)) {
+            uniqueResults.push(result);
+            seenLinks.add(result.link);
+        }
+    }
+    return uniqueResults;
+}
+
+function mergeAndWeightImageResults(googleResults, commonsResults) {
+    let allResults = [];
+    const googleWeight = 1.0;
+    allResults = allResults.concat(googleResults.map((item, index) => ({ ...item, source: 'Google', originalIndex: index, calculatedWeight: googleWeight * (1 - (index / googleResults.length / 2)) })));
+    commonsResults.forEach((item, index) => { allResults.push({ ...item, originalIndex: index, calculatedWeight: item.weight * (1 - (index / commonsResults.length / 2)) }); });
+    allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+    const uniqueResults = [];
+    const seenLinks = new Set();
+    for (const result of allResults) {
+        if (!seenLinks.has(result.link)) {
+            uniqueResults.push(result);
+            seenLinks.add(result.link);
+        }
+    }
+    return uniqueResults;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    // ========== Config & état ==========
     const RESULTS_PER_PAGE = 10;
-    let currentSearchType = 'web'; // 'web' ou 'images'
+    let currentSearchType = 'web';
     let currentQuery = '';
-    let currentSort = ''; // '' (pertinence) ou 'date'
+    let currentSort = '';
     let currentPage = 1;
     const webCache = new WebSearchCache();
-    const imageCache = new ImageSearchCache(); // Cache images désactivé par défaut
+    const imageCache = new ImageSearchCache();
     const quotaManager = new ApiQuotaManager();
 
-    // ========== DOM refs ==========
     const searchInput = document.getElementById('searchInput');
     const clearButton = document.getElementById('clearButton');
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
@@ -276,12 +478,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const toolsContainer = document.getElementById('toolsContainer');
     const toolsButton = document.getElementById('toolsButton');
 
-    if (!searchInput) {
-        console.error('search.js: #searchInput introuvable dans le DOM');
-        return;
-    }
+    if (!searchInput) { console.error('search.js: #searchInput introuvable dans le DOM'); return; }
 
-    // ========== Suggestions/autocomplete ==========
     let suggestions = [];
     let selectedIndex = -1;
     let inputDebounceTimer = null;
@@ -289,132 +487,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadSuggestions() {
         const lang = i18n.getLang();
-
-        // Éviter de recharger si c'est déjà la bonne langue
-        if (currentSuggestionsLang === lang && suggestions.length > 0) {
-            return;
-        }
-
+        if (currentSuggestionsLang === lang && suggestions.length > 0) return;
         currentSuggestionsLang = lang;
         const suggestionsFile = lang === 'en' ? 'suggestions-en.json' : 'suggestions.json';
-
         fetch(suggestionsFile)
             .then(r => r.json())
             .then(j => { suggestions = j.suggestions || []; })
             .catch((err) => {
                 console.warn(`Impossible de charger ${suggestionsFile}, utilisation des suggestions de secours.`, err);
-                suggestions = lang === 'en'
-                    ? ["animals", "dinosaurs", "planets", "science", "history"]
-                    : ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
+                suggestions = lang === 'en' ? ["animals", "dinosaurs", "planets", "science", "history"] : ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
             });
     }
-
     loadSuggestions();
 
-    // ========== Helpers ==========
     function updateUrl(query, type = currentSearchType, page = 1, sort = currentSort) {
         try {
             const newUrl = new URL(window.location);
             newUrl.searchParams.set('q', query);
             newUrl.searchParams.set('type', type);
-            if (page && page > 1) newUrl.searchParams.set('p', page);
-            else newUrl.searchParams.delete('p');
-            if (sort) newUrl.searchParams.set('sort', sort);
-            else newUrl.searchParams.delete('sort');
+            if (page > 1) newUrl.searchParams.set('p', page); else newUrl.searchParams.delete('p');
+            if (sort) newUrl.searchParams.set('sort', sort); else newUrl.searchParams.delete('sort');
             window.history.pushState({}, '', newUrl);
-        } catch (e) {
-            // ignore if URL API unavailable
-        }
+        } catch (e) { /* ignore */ }
     }
 
-    /**
-     * Détecte la langue d'une requête (français ou anglais).
-     * @param {string} query La chaîne de recherche.
-     * @returns {('fr'|'en'|null)} Le code de langue détecté ou null.
-     */
     function detectQueryLanguage(query) {
         const lowerQuery = query.toLowerCase();
-
-        // Le français est prioritaire à cause des accents qui sont un indicateur fort.
-        const frenchChars = /[àâçéèêëîïôûùüÿœæ]/i;
-        const commonFrenchWords = /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i;
-        if (frenchChars.test(lowerQuery) || commonFrenchWords.test(lowerQuery)) {
-            return 'fr';
-        }
-
-        // Détection de l'anglais avec des mots courants peu probables en français.
-        const commonEnglishWords = /\b(the|and|for|what|who|are|of|in|to|it|is)\b/i;
-        if (commonEnglishWords.test(lowerQuery)) {
-            return 'en';
-        }
-
-        return null; // Langue non détectée
+        if (/[àâçéèêëîïôûùüÿœæ]/i.test(lowerQuery) || /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i.test(lowerQuery)) return 'fr';
+        if (/\b(the|and|for|what|who|are|of|in|to|it|is)\b/i.test(lowerQuery)) return 'en';
+        return null;
     }
 
-    function buildApiUrl(query, type, page, sort) {
+    function buildGoogleCseApiUrl(query, type, page, sort) {
         const startIndex = (page - 1) * RESULTS_PER_PAGE + 1;
         const url = new URL('https://www.googleapis.com/customsearch/v1');
-        url.searchParams.set('q', query);
+        let finalQuery = query;
+
+        if (type === 'web') {
+            // Toujours exclure commons.wikimedia.org des résultats web, car ce sont des pages de fichiers.
+            let exclusions = ' -site:commons.wikimedia.org';
+
+            // Exclure les autres sources web si elles sont activées pour éviter les doublons.
+            if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) {
+                exclusions += ' -site:vikidia.org';
+            }
+            if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) {
+                exclusions += ' -site:wikipedia.org';
+            }
+            finalQuery += exclusions;
+
+        } else if (type === 'images') {
+            // Pour les images, exclure tout le domaine wikimedia.org si on cherche directement sur Commons.
+            if (CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
+                finalQuery += ' -site:wikimedia.org';
+            }
+        }
+
+        url.searchParams.set('q', finalQuery);
         url.searchParams.set('key', CONFIG.GOOGLE_API_KEY);
         url.searchParams.set('cx', CONFIG.GOOGLE_CSE_ID);
         url.searchParams.set('start', String(startIndex));
         url.searchParams.set('num', String(RESULTS_PER_PAGE));
         url.searchParams.set('safe', 'active');
         url.searchParams.set('filter', '1');
-        if (type === 'images') url.searchParams.set('searchType', 'image');
         if (sort) url.searchParams.set('sort', sort);
 
-        // Priorise les résultats en fonction de la langue détectée pour la recherche web
-        if (type === 'web') {
-            url.searchParams.set('q', query + ' -site:wikimedia.org');
+        if (type === 'images') {
+            url.searchParams.set('searchType', 'image');
+        } else if (type === 'web') {
             const lang = detectQueryLanguage(query);
-            if (lang === 'fr') {
-                console.log("🇫🇷 Requête en français détectée, application du filtre 'lang_fr'.");
-                url.searchParams.set('lr', 'lang_fr');
-            } else if (lang === 'en') {
-                console.log("🇬🇧 Requête en anglais détectée, application du filtre 'lang_en'.");
-                url.searchParams.set('lr', 'lang_en');
-            }
+            if (lang) url.searchParams.set('lr', `lang_${lang}`);
         }
-
         return url.toString();
     }
 
-    function showLoading() {
-        if (loadingEl) loadingEl.style.display = 'flex';
-    }
-    function hideLoading() {
-        if (loadingEl) loadingEl.style.display = 'none';
-    }
+    function showLoading() { if (loadingEl) loadingEl.style.display = 'flex'; }
+    function hideLoading() { if (loadingEl) loadingEl.style.display = 'none'; }
 
-    // ========== Recherche principale ==========
     function doSearch(e) {
-        if (e) e.preventDefault(); // Empêche la soumission du formulaire
-
+        if (e) e.preventDefault();
         const q = searchInput.value.trim();
         if (!q) return;
-
-        // Si on est sur la page d'accueil, on redirige vers la page de résultats
         if (document.body.classList.contains('is-homepage')) {
-            // Donne le focus au bouton pour indiquer l'action et fermer le clavier sur mobile
-            const searchButton = document.getElementById('searchButton');
-            if (searchButton) searchButton.focus();
-
-            // Construit la nouvelle URL en préservant le mode développeur
             let newUrl = `results.html?q=${encodeURIComponent(q)}`;
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('dev')) {
-                newUrl += '&dev=1';
-            }
+            if (new URLSearchParams(window.location.search).has('dev')) newUrl += '&dev=1';
             window.location.href = newUrl;
             return;
         }
-
-        // Si on est déjà sur la page de résultats, on lance une nouvelle recherche
         if (document.body.classList.contains('is-resultspage')) {
             currentQuery = q;
             currentPage = 1;
-            currentSort = ''; // Réinitialiser le tri pour une nouvelle recherche
+            currentSort = '';
             performSearch(currentQuery, currentSearchType, currentPage, currentSort);
             document.title = `${currentQuery} - Search for Kids`;
             updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
@@ -422,482 +585,227 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function performSearch(query, type = 'web', page = 1) {
-        console.log('🚀 performSearch DÉBUT avec:', query, type, page);
-
-        if (!query) {
-            console.log('❌ performSearch STOP: query vide');
-            return;
-        }
-
-        console.log('✅ Query OK, showLoading()');
+        if (!query) return;
         showLoading();
-
-        console.log('✅ Vidage conteneurs');
         resultsContainer.innerHTML = '';
         statsEl.innerHTML = '';
         paginationEl.innerHTML = '';
 
-        // Affiche le panneau de connaissances (uniquement pour la première page web)
         if (typeof tryDisplayKnowledgePanel === 'function' && type === 'web' && page === 1) {
-            console.log('✅ Appel knowledge panel');
             tryDisplayKnowledgePanel(query);
         }
 
-        console.log('✅ Construction URL API');
-        const apiUrl = buildApiUrl(query, type, page, currentSort);
-        console.log('🔗 URL construite:', apiUrl);
-
-        // Utilisation des caches séparés
-        let cachedData = null;
-        if (type === 'web') {
-            console.log('✅ Vérification cache WEB');
-            cachedData = webCache.get(query, page, currentSort);
-        } else if (type === 'images') {
-            console.log('✅ Vérification cache IMAGES (désactivé)');
-            cachedData = imageCache.get(query, page); // Retournera null car désactivé
-        }
-
+        let cachedData = (type === 'web') ? webCache.get(query, page, currentSort) : imageCache.get(query, page);
         if (cachedData) {
-            console.log('📦 Cache trouvé, affichage résultats');
             hideLoading();
             displayResults(cachedData, type, query, page);
             updateQuotaDisplay();
             return;
         }
 
-        console.log('✅ Pas de cache, appel API pour type:', type);
-
         try {
-            const res = await fetch(apiUrl);
-            const data = await res.json();
-
-            console.log('🔗 URL API utilisée:', apiUrl);
-            console.log('📊 Réponse complète API:', data);
-            console.log('🔢 Nombre items:', data.items?.length);
-            data.items?.forEach((item, i) => {
-                console.log(`${i+1}. ${item.displayLink} - ${item.title}`);
-            });
-            hideLoading();
-
-            // Sauvegarde dans le cache approprié
+            let combinedData;
             if (type === 'web') {
-                webCache.set(query, page, data, currentSort);
-                console.log('💾 Données sauvées dans cache WEB');
-            } else if (type === 'images') {
-                imageCache.set(query, page, data);
-                console.log('💾 Données PAS sauvées dans cache IMAGES (désactivé)');
+                // Détecte la langue, sinon utilise la langue de l'interface comme secours.
+                const lang = detectQueryLanguage(query) || i18n.getLang();
+                const [googleResponse, vikidiaResults, wikipediaResults] = await Promise.all([
+                    fetch(buildGoogleCseApiUrl(query, type, page, currentSort)).then(res => res.json()),
+                    fetchVikidiaResults(query, lang),
+                    fetchWikipediaResults(query, lang)
+                ]);
+                if (googleResponse.error) throw new Error(googleResponse.error.message);
+                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults);
+                combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
+                webCache.set(query, page, combinedData, currentSort);
+            } else { // Images
+                const [googleResponse, commonsResults] = await Promise.all([
+                    fetch(buildGoogleCseApiUrl(query, type, page, currentSort)).then(res => res.json()),
+                    fetchWikimediaCommonsResults(query)
+                ]);
+                if (googleResponse.error) throw new Error(googleResponse.error.message);
+                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults);
+                combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
+                imageCache.set(query, page, combinedData);
             }
 
+            hideLoading();
             quotaManager.recordRequest();
             updateQuotaDisplay();
-
-            if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-            displayResults(data, type, query, page);
+            displayResults(combinedData, type, query, page);
         } catch (err) {
             hideLoading();
-            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;">
-        <p>Une erreur s'est produite lors de la recherche.</p>
-        <p style="font-size:14px; color:#70757a;">${err.message || err}</p>
-      </div>`;
+            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;"><p>Une erreur s'est produite.</p><p style="font-size:14px; color:#70757a;">${err.message || err}</p></div>`;
             console.error('performSearch error', err);
         }
     }
 
-    // ========== Affichage résultats ==========
     function displayResults(data, type, query, page) {
-        // Stats
-        statsEl.textContent = ''; // Supprime l'affichage "Environ x résultats"
-
-        let totalResults = 0;
-        if (data.searchInformation) {
-            totalResults = parseInt(data.searchInformation.totalResults || data.searchInformation.formattedTotalResults || '0', 10) || 0;
-        }
-
-        // Gérer la visibilité du bouton Outils
-        if (toolsContainer) {
-            toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'flex' : 'none';
-        }
+        statsEl.textContent = '';
+        const totalResults = data.items?.length || 0;
+        if (toolsContainer) toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'flex' : 'none';
 
         if (!data.items || data.items.length === 0) {
             const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${query}"`;
             const suggestionsMsg = i18n.get('noResultsSuggestions');
-            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;">
-                <p style="font-size: 1.2em; margin-bottom: 16px;">${noResultsMsg}</p>
-                <ul style="list-style-type: none; padding: 0; font-size: 0.9em; color: #5f6368;">
-                    ${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}
-                </ul>
-            </div>`;
+            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;"><p style="font-size:1.2em; margin-bottom:16px;">${noResultsMsg}</p><ul style="list-style:none; padding:0; font-size:0.9em; color:#5f6368;">${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
             createPagination(totalResults, page, data);
             return;
         }
 
-        if (type === 'web') {
-            resultsContainer.classList.remove('grid');
-            data.items.forEach(item => {
-                resultsContainer.appendChild(createSearchResult(item));
-            });
-        } else {
-            resultsContainer.classList.add('grid');
-            data.items.forEach(item => {
-                resultsContainer.appendChild(createImageResult(item));
-            });
-        }
-
+        resultsContainer.classList.toggle('grid', type === 'images');
+        data.items.forEach(item => {
+            resultsContainer.appendChild(type === 'web' ? createSearchResult(item) : createImageResult(item));
+        });
         createPagination(totalResults, page, data);
     }
 
-    // ========== Création d'un résultat web ==========
     function createSearchResult(item) {
         const resultDiv = document.createElement('div');
         resultDiv.className = 'search-result';
-
-        const thumbnail = (item.pagemap && item.pagemap.cse_thumbnail && item.pagemap.cse_thumbnail[0]) ? `<img src="${item.pagemap.cse_thumbnail[0].src}" alt="">` : '';
+        const thumbnail = (item.pagemap?.cse_thumbnail?.[0]) ? `<img src="${item.pagemap.cse_thumbnail[0].src}" alt="">` : '';
         resultDiv.innerHTML = `
-      <div class="result-thumbnail">${thumbnail}</div>
-      <div class="result-content">
-        <div class="result-url">${item.displayLink || ''}</div>
-        <div class="result-title"><a href="${item.link || '#'}" target="_blank" rel="noopener noreferrer">${item.title || ''}</a></div>
-        <div class="result-snippet">${
-            // On nettoie le snippet HTML pour prévenir les attaques XSS
-            DOMPurify.sanitize(item.htmlSnippet || item.snippet || '')
-        }</div>
-      </div>
-    `;
+          <div class="result-thumbnail">${thumbnail}</div>
+          <div class="result-content">
+            <div class="result-url">${item.displayLink || ''}</div>
+            <div class="result-title"><a href="${item.link || '#'}" target="_blank" rel="noopener noreferrer">${item.title || ''}</a></div>
+            <div class="result-snippet">${DOMPurify.sanitize(item.htmlSnippet || item.snippet || '')}</div>
+            ${item.source ? `<div class="result-source" style="font-size:0.8em; color:#888; margin-top:5px;">Source: ${item.source}</div>` : ''}
+          </div>`;
         return resultDiv;
     }
 
-    // ========== Création d'une vignette image INTELLIGENTE ==========
     function createImageResult(item) {
         const div = document.createElement('div');
         div.className = 'image-result';
         div.onclick = () => openImageModal(item);
 
-        // Récupération des dimensions et URL de l'image
-        const imgUrl = item.link || (item.image && item.image.thumbnailLink) || '';
-        const width = item.image ? parseInt(item.image.width) || 0 : 0;
-        const height = item.image ? parseInt(item.image.height) || 0 : 0;
-
-        // Détection intelligente du format
+        const imgUrl = item.link || item.image?.thumbnailLink || '';
+        const width = item.image?.width || 0;
+        const height = item.image?.height || 0;
         const aspectRatio = width && height ? width / height : 1;
-        let format = 'square'; // défaut
-        let gridSpan = 1; // colonnes occupées par défaut
-        let aspectRatioCSS = '1 / 1'; // aspect ratio par défaut
+        let gridSpan = 1, aspectRatioCSS = '1 / 1';
+        if (aspectRatio > 1.5) { gridSpan = 2; aspectRatioCSS = '2 / 1'; } 
+        else if (aspectRatio > 1.2) { aspectRatioCSS = '4 / 3'; } 
+        else if (aspectRatio < 0.7) { aspectRatioCSS = '3 / 4'; }
 
-        if (aspectRatio > 0) {
-            if (aspectRatio > 1.5) {
-                // Paysage large (ex: panorama)
-                format = 'landscape-wide';
-                gridSpan = 2;
-                aspectRatioCSS = '2 / 1';
-            } else if (aspectRatio > 1.2) {
-                // Paysage normal
-                format = 'landscape';
-                gridSpan = 1;
-                aspectRatioCSS = '4 / 3';
-            } else if (aspectRatio < 0.7) {
-                // Portrait étroit
-                format = 'portrait-tall';
-                gridSpan = 1;
-                aspectRatioCSS = '3 / 4';
-            } else if (aspectRatio < 0.9) {
-                // Portrait normal
-                format = 'portrait';
-                gridSpan = 1;
-                aspectRatioCSS = '3 / 4';
-            } else {
-                // Carré ou presque carré
-                format = 'square';
-                gridSpan = 1;
-                aspectRatioCSS = '1 / 1';
-            }
-        }
+        div.style.gridColumn = `span ${gridSpan}`;
 
-        // Application des classes CSS pour le format
-        div.classList.add(`format-${format}`);
-        if (gridSpan > 1) {
-            div.style.gridColumn = `span ${gridSpan}`;
-        }
-
-        // Création de l'image avec gestion de l'erreur de chargement
         const img = document.createElement('img');
         img.src = imgUrl;
         img.alt = item.title || '';
         img.loading = 'lazy';
+        img.style.cssText = `width:100%; height:100%; object-fit:cover; display:block; border-radius:8px;`;
+        img.onerror = () => { div.style.display = 'none'; };
 
-        // Styles CSS adaptés selon le format
-        img.style.cssText = `
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            display: block;
-            border-radius: 8px;
-        `;
-
-        // Gestion de l'erreur de chargement
-        img.onerror = function() {
-            this.parentElement.style.display = 'none';
-        };
-
-        // Conteneur de l'image avec aspect ratio adaptatif
         const imageContainer = document.createElement('div');
-        imageContainer.style.cssText = `
-            position: relative;
-            width: 100%;
-            aspect-ratio: ${aspectRatioCSS};
-            overflow: hidden;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            background-color: #f8f9fa;
-        `;
-
+        imageContainer.style.cssText = `position:relative; width:100%; aspect-ratio:${aspectRatioCSS}; overflow:hidden; border-radius:8px; margin-bottom:8px; background-color:#f8f9fa;`;
         imageContainer.appendChild(img);
 
-        // Informations de l'image
         const infoDiv = document.createElement('div');
         infoDiv.className = 'image-info';
-        infoDiv.style.cssText = `
-            padding: 4px 0;
-        `;
+        infoDiv.innerHTML = `
+            <div class="image-title" style="font-size:12px; line-height:1.3; color:#202124; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-bottom:2px;">${item.title || ''}</div>
+            <div class="image-source" style="font-size:11px; color:#70757a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.displayLink || ''}</div>`;
 
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'image-title';
-        titleDiv.textContent = item.title || '';
-        titleDiv.style.cssText = `
-            font-size: 12px;
-            line-height: 1.3;
-            color: #202124;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            margin-bottom: 2px;
-        `;
+        div.style.cssText = `cursor:pointer; border-radius:8px; transition:all 0.2s ease; background-color:white; overflow:hidden; grid-column:span ${gridSpan};`;
+        div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.02)'; div.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; });
+        div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.boxShadow = 'none'; });
 
-        const sourceDiv = document.createElement('div');
-        sourceDiv.className = 'image-source';
-        sourceDiv.textContent = item.displayLink || '';
-        sourceDiv.style.cssText = `
-            font-size: 11px;
-            color: #70757a;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        `;
-
-        infoDiv.appendChild(titleDiv);
-        infoDiv.appendChild(sourceDiv);
-
-        // Styles pour le conteneur principal
-        div.style.cssText = `
-            cursor: pointer;
-            border-radius: 8px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            background-color: white;
-            overflow: hidden;
-            ${gridSpan > 1 ? `grid-column: span ${gridSpan};` : ''}
-        `;
-
-        // Effet au survol/touch
-        div.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.02)';
-            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-        });
-
-        div.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = 'none';
-        });
-
-        // Ajout d'un badge de format pour debug (optionnel)
-        if (window.location.search.includes('debug=1')) {
-            const badge = document.createElement('div');
-            badge.style.cssText = `
-                position: absolute;
-                top: 4px;
-                left: 4px;
-                background: rgba(0,0,0,0.7);
-                color: white;
-                padding: 2px 4px;
-                font-size: 10px;
-                border-radius: 3px;
-                z-index: 10;
-            `;
-            badge.textContent = `${format} (${width}×${height})`;
-            imageContainer.appendChild(badge);
+        if (item.source) {
+            const sourceBadge = document.createElement('div');
+            sourceBadge.textContent = item.source;
+            sourceBadge.style.cssText = `position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.6); color:white; padding:2px 5px; font-size:10px; border-radius:3px; z-index:1;`;
+            imageContainer.appendChild(sourceBadge);
         }
 
         div.appendChild(imageContainer);
         div.appendChild(infoDiv);
-
         return div;
     }
 
-    // ========== Pagination ==========
     function createPagination(totalResults = 0, page = 1, data = null) {
         paginationEl.innerHTML = '';
-
         const maxPages = 10;
-        const receivedItems = data && data.items ? data.items.length : 0;
-
+        const receivedItems = data?.items?.length || 0;
         if (page > 1) {
             const prev = document.createElement('button');
             prev.textContent = i18n.get('previousButton');
-            prev.onclick = () => {
-                currentPage = Math.max(1, page - 1);
-                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
-                updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
-            };
+            prev.onclick = () => { currentPage--; performSearch(currentQuery, currentSearchType, currentPage, currentSort); updateUrl(currentQuery, currentSearchType, currentPage, currentSort); };
             paginationEl.appendChild(prev);
         }
-
-        // Display "Next" button if we are optimistic
-        if (page < maxPages && receivedItems === RESULTS_PER_PAGE) {
+        if (page < maxPages && receivedItems >= RESULTS_PER_PAGE) {
             const next = document.createElement('button');
             next.textContent = i18n.get('nextButton');
-            next.onclick = () => {
-                currentPage = page + 1;
-                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
-                updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
-            };
+            next.onclick = () => { currentPage++; performSearch(currentQuery, currentSearchType, currentPage, currentSort); updateUrl(currentQuery, currentSearchType, currentPage, currentSort); };
             paginationEl.appendChild(next);
         }
     }
 
-    // ========== Onglets ==========
     function switchTab(type) {
-        console.log('🔄 switchTab appelé avec:', type);
-        console.log('🔄 currentQuery avant:', currentQuery);
-
         currentSearchType = type;
-        if (webTab) webTab.classList.toggle('active', type === 'web');
-        if (imagesTab) imagesTab.classList.toggle('active', type === 'images');
-
+        webTab.classList.toggle('active', type === 'web');
+        imagesTab.classList.toggle('active', type === 'images');
         if (currentQuery) {
-            console.log('🔍 Lancement performSearch avec:', currentQuery, currentSearchType);
             currentPage = 1;
-            if (type === 'images') {
-                currentSort = '';
-            }
+            if (type === 'images') currentSort = '';
             performSearch(currentQuery, currentSearchType, currentPage, currentSort);
             updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
-        } else {
-            console.log('❌ currentQuery vide, pas de recherche');
         }
     }
 
-    // Ensure onclick attributes (if present in HTML) still work:
-    console.log('Vérification des éléments onglets:');
-    console.log('webTab trouvé:', !!webTab);
-    console.log('imagesTab trouvé:', !!imagesTab);
+    if (webTab) webTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('web'); });
+    if (imagesTab) imagesTab.addEventListener('click', (e) => { e.preventDefault(); switchTab('images'); });
 
-    if (webTab) {
-        webTab.addEventListener('click', (e) => {
-            console.log('Clic webTab détecté');
-            e.preventDefault();
-            switchTab('web');
-        });
-    } else {
-        console.error('webTab introuvable !');
-    }
-
-    if (imagesTab) {
-        imagesTab.addEventListener('click', (e) => {
-            console.log('Clic imagesTab détecté');
-            e.preventDefault();
-            switchTab('images');
-        });
-    } else {
-        console.error('imagesTab introuvable !');
-    }
-
-    // ========== Tri ==========
     function setupSortOptions() {
         const sortPanel = document.getElementById('sortPanel');
         if (!sortPanel || !toolsButton) return;
-
         const sortOptions = sortPanel.querySelectorAll('.sort-option');
-
         sortOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 e.preventDefault();
                 const newSort = e.target.getAttribute('data-sort');
-                if (newSort === currentSort) {
-                    sortPanel.style.display = 'none'; // Ferme si on reclique sur la même option
-                    return;
-                }
+                if (newSort === currentSort) { sortPanel.style.display = 'none'; return; }
                 currentSort = newSort;
-                sortPanel.style.display = 'none'; // Ferme le panneau après sélection
-
-                performSearch(currentQuery, currentSearchType, 1, currentSort); // Relance à la page 1
+                sortPanel.style.display = 'none';
+                performSearch(currentQuery, currentSearchType, 1, currentSort);
                 updateUrl(currentQuery, currentSearchType, 1, currentSort);
             });
         });
-
         toolsButton.addEventListener('click', (e) => {
-            e.preventDefault(); // Empêche le lien de suivre l'URL href="#"
-            e.stopPropagation(); // Empêche le clic de se propager au document
-            const sortPanel = document.getElementById('sortPanel');
+            e.preventDefault(); e.stopPropagation();
             sortPanel.style.display = sortPanel.style.display === 'block' ? 'none' : 'block';
-
-            // Met à jour l'état "actif" du menu
             if (sortPanel.style.display === 'block') {
                 sortOptions.forEach(opt => opt.classList.toggle('active', opt.getAttribute('data-sort') === currentSort));
             }
         });
     }
 
-    // ========== Modal images ==========
     function openImageModal(item) {
-        const imgUrl = item.link || (item.image && item.image.contextLink) || '';
-        modalImage.src = imgUrl;
+        modalImage.src = item.link || item.image?.contextLink || '';
         modalTitle.textContent = item.title || '';
-        modalSource.innerHTML = item.image && item.image.contextLink ? `<a href="${item.image.contextLink}" target="_blank" rel="noopener noreferrer">${item.displayLink || item.image.contextLink}</a>` : (item.displayLink || '');
+        modalSource.innerHTML = item.image?.contextLink ? `<a href="${item.image.contextLink}" target="_blank" rel="noopener noreferrer">${item.displayLink || item.image.contextLink}</a>` : (item.displayLink || '');
         modalDimensions.textContent = item.image ? `${item.image.width} × ${item.image.height} pixels` : '';
         imageModal.style.display = 'flex';
     }
-    function closeImageModal() {
-        modalImage.src = '';
-        imageModal.style.display = 'none';
-    }
-    if (imageModal) {
-        imageModal.addEventListener('click', (e) => { if (e.target === imageModal) closeImageModal(); });
-    }
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeImageModal();
-    });
+    function closeImageModal() { modalImage.src = ''; imageModal.style.display = 'none'; }
+    if (imageModal) imageModal.addEventListener('click', (e) => { if (e.target === imageModal) closeImageModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeImageModal(); });
 
-    // ========== Autocomplete UI & keyboard ==========
-    // Dans l'event listener 'input', remplacer le filtrage par :
-    searchInput.addEventListener('input', (ev) => {
-        // Gère la visibilité du bouton pour effacer
-        if (clearButton) {
-            clearButton.style.display = searchInput.value.length > 0 ? 'block' : 'none';
-        }
-
-
+    searchInput.addEventListener('input', () => {
+        if (clearButton) clearButton.style.display = searchInput.value.length > 0 ? 'block' : 'none';
         const value = searchInput.value.toLowerCase().trim();
         clearTimeout(inputDebounceTimer);
         inputDebounceTimer = setTimeout(() => {
             autocompleteDropdown.innerHTML = '';
             selectedIndex = -1;
-            if (!value || !suggestions.length) {
-                autocompleteDropdown.style.display = 'none';
-                return;
-            }
-
-            loadSuggestions(); // S'assure que les suggestions sont chargées
-
+            if (!value || !suggestions.length) { autocompleteDropdown.style.display = 'none'; return; }
+            loadSuggestions();
             const matches = suggestions.filter(s => s.toLowerCase().includes(value)).slice(0, 8);
             matches.forEach(match => {
                 const div = document.createElement('div');
                 div.className = 'autocomplete-item';
                 div.textContent = match;
-                div.addEventListener('click', () => {
-                    searchInput.value = match;
-                    autocompleteDropdown.style.display = 'none';
-                    doSearch();
-                });
+                div.addEventListener('click', () => { searchInput.value = match; autocompleteDropdown.style.display = 'none'; doSearch(); });
                 autocompleteDropdown.appendChild(div);
             });
             autocompleteDropdown.style.display = matches.length ? 'block' : 'none';
@@ -907,25 +815,10 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('keydown', (e) => {
         const items = Array.from(autocompleteDropdown.getElementsByClassName('autocomplete-item'));
         if (!items.length) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            selectedIndex = Math.min(items.length - 1, selectedIndex + 1);
-            updateSelection(items);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            selectedIndex = Math.max(-1, selectedIndex - 1);
-            updateSelection(items);
-        } else if (e.key === 'Enter') {
-            if (selectedIndex >= 0 && items[selectedIndex]) {
-                e.preventDefault();
-                items[selectedIndex].click();
-                autocompleteDropdown.style.display = 'none'; // Fermer le dropdown
-            } else {
-                // allow form submit normally -> we intercept via doSearch on submit
-            }
-        } else if (e.key === 'Escape') {
-            autocompleteDropdown.style.display = 'none';
-        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = Math.min(items.length - 1, selectedIndex + 1); updateSelection(items); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = Math.max(-1, selectedIndex - 1); updateSelection(items); }
+        else if (e.key === 'Enter') { if (selectedIndex >= 0 && items[selectedIndex]) { e.preventDefault(); items[selectedIndex].click(); autocompleteDropdown.style.display = 'none'; } }
+        else if (e.key === 'Escape') { autocompleteDropdown.style.display = 'none'; }
     });
 
     function updateSelection(items) {
@@ -934,153 +827,66 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('click', (e) => {
-        if (!autocompleteDropdown.contains(e.target) && e.target !== searchInput) {
-            autocompleteDropdown.style.display = 'none';
-            selectedIndex = -1;
-        }
-        // Ferme le panneau de tri si on clique en dehors
+        if (!autocompleteDropdown.contains(e.target) && e.target !== searchInput) autocompleteDropdown.style.display = 'none';
         const sortPanel = document.getElementById('sortPanel');
-        const toolsBtn = document.getElementById('toolsButton');
-        if (sortPanel && sortPanel.style.display === 'block') {
-            if (!sortPanel.contains(e.target) && e.target !== toolsBtn) {
-                sortPanel.style.display = 'none';
-            }
-        }
+        if (sortPanel?.style.display === 'block' && !sortPanel.contains(e.target) && e.target !== toolsButton) sortPanel.style.display = 'none';
     });
 
-    // Gère le clic sur le bouton pour effacer
-    if (clearButton) {
-        clearButton.addEventListener('click', () => {
-            searchInput.value = '';
-            clearButton.style.display = 'none';
-            autocompleteDropdown.style.display = 'none';
-            selectedIndex = -1;
-            searchInput.focus();
-        });
-    }
+    if (clearButton) clearButton.addEventListener('click', () => { searchInput.value = ''; clearButton.style.display = 'none'; autocompleteDropdown.style.display = 'none'; searchInput.focus(); });
 
-    // ========== Form submit binding ==========
     const form = document.querySelector('.search-bar form') || document.querySelector('form');
     if (form) form.addEventListener('submit', doSearch);
 
-    // ========== Auto-run if q in URL ==========
     try {
         const params = new URLSearchParams(window.location.search);
         if (params.has('q')) {
             document.body.classList.add('is-resultspage');
-            const qParam = params.get('q');
-            const typeParam = params.get('type');
-            const sortParam = params.get('sort');
-            const pageParam = parseInt(params.get('p') || '1', 10) || 1;
-
-            // CORRECTION : Déterminer le type initial basé sur l'URL OU l'état visuel des onglets
-            if (typeParam === 'images') {
-                currentSearchType = 'images';
-            } else if (imagesTab && imagesTab.classList.contains('active') && !webTab.classList.contains('active')) {
-                // Si l'onglet Images est visuellement actif mais pas dans l'URL, on synchronise
-                currentSearchType = 'images';
-            }
-
-            if (qParam) {
-                currentSort = sortParam || '';
-                searchInput.value = qParam;
-                currentQuery = qParam;
-                currentPage = pageParam;
-
-                // AFFICHE LA CROIX si le champ est pré-rempli
-                if (clearButton && searchInput.value.length > 0) {
-                    clearButton.style.display = 'block';
-                }
-
-                // S'assurer que l'UI des onglets correspond à currentSearchType
-                if (currentSearchType === 'images') {
-                    if (webTab) webTab.classList.remove('active');
-                    if (imagesTab) imagesTab.classList.add('active');
-                } else {
-                    if (webTab) webTab.classList.add('active');
-                    if (imagesTab) imagesTab.classList.remove('active');
-                }
-
-                performSearch(currentQuery, currentSearchType, currentPage, currentSort);
-            }
+            currentQuery = params.get('q');
+            currentSearchType = params.get('type') || 'web';
+            currentSort = params.get('sort') || '';
+            currentPage = parseInt(params.get('p') || '1', 10) || 1;
+            searchInput.value = currentQuery;
+            if (clearButton && currentQuery) clearButton.style.display = 'block';
+            webTab.classList.toggle('active', currentSearchType === 'web');
+            imagesTab.classList.toggle('active', currentSearchType === 'images');
+            performSearch(currentQuery, currentSearchType, currentPage, currentSort);
         } else if (document.getElementById('logo')) {
             document.body.classList.add('is-homepage');
         }
-    } catch (e) {
-        // ignore URL parsing errors
-    }
+    } catch (e) { /* ignore */ }
 
-    // Initialisation
     if (document.getElementById('sortPanel')) setupSortOptions();
 
-// =========================================================================
-// QUOTA DISPLAY (avec mode développeur activé via ?dev=1)
-// =========================================================================
-
-// Détection du mode développeur
-    // =========================================================================
-// QUOTA DISPLAY (avec mode développeur activé via ?dev=1)
     const urlParams = new URLSearchParams(window.location.search);
     const isDevMode = urlParams.has('dev');
 
     function updateQuotaDisplay() {
         if (!isDevMode) {
             const quotaEl = document.getElementById('quotaIndicator');
-            if (quotaEl) quotaEl.remove(); // supprime si déjà affiché
+            if (quotaEl) quotaEl.remove();
             return;
         }
-
         const usage = quotaManager.getUsage();
         const webStats = webCache.getStats();
         const imageStats = imageCache.getStats();
-
         let quotaEl = document.getElementById('quotaIndicator');
         if (!quotaEl) {
             quotaEl = document.createElement('div');
             quotaEl.id = 'quotaIndicator';
-            quotaEl.style.cssText = `
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 12px;
-            color: #70757a;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-            z-index: 1000;
-        `;
+            quotaEl.style.cssText = `position:fixed; bottom:10px; right:10px; background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:8px 12px; font-size:12px; color:#70757a; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:1000;`;
             document.body.appendChild(quotaEl);
         }
-
         const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
         quotaEl.innerHTML = `
         📊 API: <span style="color:${quotaColor}">${usage.remaining}</span>/${usage.limit} |
         📋 Web: ${webStats.size}/${webStats.maxSize} |
-        🖼️ Images: ${imageStats.enabled ? imageStats.size + '/' + imageStats.maxSize : 'OFF'} |
-        <button id="devClearBtn" style="
-            margin-left:8px;
-            background:#fff;
-            border:1px solid #ccc;
-            border-radius:4px;
-            padding:2px 6px;
-            cursor:pointer;
-        ">🗑️ Vider les caches</button>
-    `;
-
-        // Ajout du bouton effacer cache
+        🖼️ Images: ${imageStats.enabled ? `${imageStats.size}/${imageStats.maxSize}` : 'OFF'} |
+        <button id="devClearBtn" style="margin-left:8px; background:#fff; border:1px solid #ccc; border-radius:4px; padding:2px 6px; cursor:pointer;">🗑️ Vider</button>`;
         const clearBtn = document.getElementById('devClearBtn');
         if (clearBtn && !clearBtn.dataset.listenerAttached) {
             clearBtn.onclick = () => {
-                if (confirm("Effacer cache et quotas ?")) {
-                    try {
-                        webCache.clear();
-                        imageCache.clear();
-                        localStorage.removeItem('api_usage');
-                    } catch (e) {
-                        console.warn("Erreur lors du clear cache:", e);
-                    }
+                if (confirm("Effacer tous les caches et quotas ?")) {
+                    try { webCache.clear(); imageCache.clear(); localStorage.removeItem('api_usage'); } catch (e) { console.warn("Erreur clear cache:", e); }
                     alert("Caches vidés. Rechargement...");
                     window.location.reload();
                 }
@@ -1088,9 +894,5 @@ document.addEventListener('DOMContentLoaded', () => {
             clearBtn.dataset.listenerAttached = 'true';
         }
     }
-
-
-    // Mise à jour initiale de l'affichage du quota
     updateQuotaDisplay();
-
 });
