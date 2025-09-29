@@ -31,6 +31,11 @@ const translations = {
         results: "résultats",
         previousButton: "Précédent",
         nextButton: "Suivant",
+        noResultsSuggestions: [
+            "Vérifiez l'orthographe.",
+            "Essayez avec des mots-clés différents ou plus généraux.",
+            "Utilisez moins de mots."
+        ],
 
         // Panneau de connaissances
         knowledgePanelSource: "Source inconnue",
@@ -68,6 +73,11 @@ const translations = {
         results: "results",
         previousButton: "Previous",
         nextButton: "Next",
+        noResultsSuggestions: [
+            "Make sure all words are spelled correctly.",
+            "Try different or more general keywords.",
+            "Try fewer keywords."
+        ],
 
         // Knowledge Panel
         knowledgePanelSource: "Unknown source",

@@ -506,18 +506,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Affichage résultats ==========
     function displayResults(data, type, query, page) {
         // Stats
+        statsEl.textContent = ''; // Supprime l'affichage "Environ x résultats"
+
         let totalResults = 0;
         if (data.searchInformation) {
             totalResults = parseInt(data.searchInformation.totalResults || data.searchInformation.formattedTotalResults || '0', 10) || 0;
-            const time = data.searchInformation.searchTime || data.searchInformation.formattedSearchTime || '';
-            const formattedResults = totalResults.toLocaleString(i18n.getLang() === 'fr' ? 'fr-FR' : 'en-US');
-            let statsText = totalResults ? `${i18n.get('aboutResults')} ${formattedResults} ${i18n.get('results')}` : '';
-            if (time) {
-                statsText += ` (${parseFloat(time).toFixed(2)}s)`;
-            }
-            statsEl.textContent = statsText;
-        } else {
-            statsEl.textContent = '';
         }
 
         // Gérer la visibilité du bouton Outils
@@ -527,10 +520,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!data.items || data.items.length === 0) {
             const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${query}"`;
+            const suggestionsMsg = i18n.get('noResultsSuggestions');
             resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;">
-    <p>${noResultsMsg}</p>
-</div>`;
-            createPagination(totalResults, page);
+                <p style="font-size: 1.2em; margin-bottom: 16px;">${noResultsMsg}</p>
+                <ul style="list-style-type: none; padding: 0; font-size: 0.9em; color: #5f6368;">
+                    ${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}
+                </ul>
+            </div>`;
+            createPagination(totalResults, page, data);
             return;
         }
 
@@ -739,7 +736,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Pagination ==========
     function createPagination(totalResults = 0, page = 1, data = null) {
         paginationEl.innerHTML = '';
-        const maxPages = totalResults ? Math.min(Math.ceil(totalResults / RESULTS_PER_PAGE), 10) : page;
+
+        const maxPages = 10;
+        const receivedItems = data && data.items ? data.items.length : 0;
 
         if (page > 1) {
             const prev = document.createElement('button');
@@ -752,24 +751,8 @@ document.addEventListener('DOMContentLoaded', () => {
             paginationEl.appendChild(prev);
         }
 
-        // pages around current page (simple)
-        const startPage = Math.max(1, page - 2);
-        const endPage = Math.min(maxPages, startPage + 4);
-        for (let i = startPage; i <= endPage; i++) {
-            const pbtn = document.createElement('button');
-            pbtn.textContent = i;
-            if (i === page) pbtn.className = 'current';
-            pbtn.onclick = () => {
-                if (i !== page) {
-                    currentPage = i;
-                    performSearch(currentQuery, currentSearchType, currentPage, currentSort);
-                    updateUrl(currentQuery, currentSearchType, currentPage, currentSort);
-                }
-            };
-            paginationEl.appendChild(pbtn);
-        }
-
-        if (data && data.queries && data.queries.nextPage) {
+        // Display "Next" button if we are optimistic
+        if (page < maxPages && receivedItems === RESULTS_PER_PAGE) {
             const next = document.createElement('button');
             next.textContent = i18n.get('nextButton');
             next.onclick = () => {
@@ -1110,247 +1093,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mise à jour initiale de l'affichage du quota
     updateQuotaDisplay();
 
-    // ========== CSS dynamique pour grille d'images responsive et intelligente ==========
-    function injectResponsiveImageGridCSS() {
-        if (document.getElementById('responsive-image-grid-styles')) return; // Évite les doublons
-
-        const style = document.createElement('style');
-        style.id = 'responsive-image-grid-styles';
-        style.textContent = `
-            /* Grille responsive intelligente pour les images */
-            #resultsContainer.grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-                gap: 12px;
-                padding: 16px 12px;
-                grid-auto-flow: row dense; /* Remplit les trous intelligemment */
-            }
-
-            /* Adaptations pour différentes tailles d'écran */
-            @media (max-width: 480px) {
-                #resultsContainer.grid {
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 8px;
-                    padding: 12px 8px;
-                }
-                
-                /* Sur mobile, limite les images paysage à 2 colonnes max */
-                .image-result.format-landscape-wide {
-                    grid-column: span 2;
-                }
-            }
-
-            @media (min-width: 481px) and (max-width: 768px) {
-                #resultsContainer.grid {
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                }
-                
-                .image-result.format-landscape-wide {
-                    grid-column: span 2;
-                }
-            }
-
-            @media (min-width: 769px) and (max-width: 1024px) {
-                #resultsContainer.grid {
-                    grid-template-columns: repeat(4, 1fr);
-                    gap: 12px;
-                }
-                
-                .image-result.format-landscape-wide {
-                    grid-column: span 2;
-                }
-            }
-
-            @media (min-width: 1025px) {
-                #resultsContainer.grid {
-                    grid-template-columns: repeat(6, 1fr);
-                    gap: 14px;
-                }
-                
-                .image-result.format-landscape-wide {
-                    grid-column: span 2;
-                }
-            }
-
-            /* Styles de base pour les résultats d'images */
-            .image-result {
-                background: white;
-                border-radius: 8px;
-                overflow: hidden;
-                transition: all 0.2s ease;
-                cursor: pointer;
-            }
-
-            .image-result:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            }
-
-            .image-result:active {
-                transform: translateY(0);
-                transition: transform 0.1s ease;
-            }
-
-            /* Styles spécifiques par format d'image */
-            .image-result.format-square {
-                /* Style par défaut - carré */
-            }
-
-            .image-result.format-landscape {
-                /* Paysage normal - ratio 4:3 */
-            }
-
-            .image-result.format-landscape-wide {
-                /* Paysage large - occupe 2 colonnes, ratio 2:1 */
-                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            }
-
-            .image-result.format-portrait {
-                /* Portrait normal - ratio 3:4 */
-                background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-            }
-
-            .image-result.format-portrait-tall {
-                /* Portrait étroit - ratio 3:4 */
-                background: linear-gradient(180deg, #f1f3f4 0%, #e8eaed 100%);
-            }
-
-            /* Conteneur d'image adaptatif */
-            .image-result .image-container {
-                position: relative;
-                width: 100%;
-                overflow: hidden;
-                background-color: #f8f9fa;
-            }
-
-            /* Image responsive et centrée */
-            .image-result img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                object-position: center;
-                display: block;
-                transition: transform 0.3s ease;
-            }
-
-            .image-result:hover img {
-                transform: scale(1.05);
-            }
-
-            /* Styles d'image spéciaux selon le format */
-            .image-result.format-landscape-wide img {
-                object-fit: cover;
-                /* Pour les panoramas, on peut privilégier le centre horizontal */
-                object-position: center center;
-            }
-
-            .image-result.format-portrait img,
-            .image-result.format-portrait-tall img {
-                /* Pour les portraits, on peut privilégier le haut */
-                object-position: center top;
-            }
-
-            /* Informations de l'image */
-            .image-result .image-info {
-                padding: 8px;
-            }
-
-            .image-result .image-title {
-                font-size: 12px;
-                line-height: 1.3;
-                color: #202124;
-                overflow: hidden;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                margin-bottom: 4px;
-                word-break: break-word;
-            }
-
-            .image-result .image-source {
-                font-size: 11px;
-                color: #70757a;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            /* Ajustements pour images larges */
-            .image-result.format-landscape-wide .image-title {
-                font-size: 13px;
-                -webkit-line-clamp: 3;
-            }
-
-            /* Indicateur visuel discret pour différents formats */
-            .image-result.format-landscape-wide::before {
-                content: "📐";
-                position: absolute;
-                top: 4px;
-                right: 4px;
-                font-size: 12px;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                z-index: 10;
-                background: rgba(255,255,255,0.9);
-                padding: 2px 4px;
-                border-radius: 4px;
-            }
-
-            .image-result.format-landscape-wide:hover::before {
-                opacity: 1;
-            }
-
-            /* Optimisations tactiles pour mobile */
-            @media (hover: none) and (pointer: coarse) {
-                .image-result {
-                    transition: none;
-                }
-                
-                .image-result:hover {
-                    transform: none;
-                    box-shadow: none;
-                }
-                
-                .image-result:hover img {
-                    transform: none;
-                }
-                
-                .image-result:active {
-                    background-color: #f8f9fa;
-                    transform: scale(0.98);
-                }
-
-                .image-result.format-landscape-wide::before {
-                    display: none;
-                }
-            }
-
-            /* Animation d'apparition progressive */
-            .image-result {
-                animation: fadeInUp 0.4s ease forwards;
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            @keyframes fadeInUp {
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            /* Délais échelonnés pour l'animation */
-            .image-result:nth-child(1) { animation-delay: 0.1s; }
-            .image-result:nth-child(2) { animation-delay: 0.2s; }
-            .image-result:nth-child(3) { animation-delay: 0.3s; }
-            .image-result:nth-child(4) { animation-delay: 0.4s; }
-            .image-result:nth-child(5) { animation-delay: 0.5s; }
-            .image-result:nth-child(n+6) { animation-delay: 0.6s; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Injecter les styles CSS au chargement
-    injectResponsiveImageGridCSS();
 });
