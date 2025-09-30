@@ -56,7 +56,18 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
            EXTRACT_LENGTH: 300,
            THUMBNAIL_SIZE: 150,
            DISABLE_THUMBNAILS: false
-       }
+       },
+       // Optionnel : Ajoutez votre propre instance MeiliSearch pour des résultats personnalisés
+       MEILISEARCH_CONFIG: {
+           ENABLED: false, // Mettre à true pour activer
+           API_URL: 'https://votre-instance-meili.com',
+           API_KEY: 'votre_cle_api_recherche_meili',
+           INDEX_NAME: 'nom_de_votre_index',
+           SOURCE_NAME: 'Ma Source Personnalisée',
+           WEIGHT: 0.6, // Ajustez pour prioriser les résultats
+           BASE_URLS: ['https://votre-site-web.com'] // Liste des URLs de base des sites indexés (pour les exclure de Google)
+       },
+       // ... autres configurations pour Wikipedia, Vikidia, etc.
    };
    ```
 
@@ -98,6 +109,7 @@ search-for-kids/
 ├── style.css               # Feuille de style principale
 ├── search.js              # Moteur de recherche principal avec cache et quota
 ├── loader.js              # Charge dynamiquement config.js
+├── i18n.js                # Script d'internationalisation
 ├── knowledge-panels.js    # Encarts de connaissances Vikidia
 ├── suggestions.json       # Base de données des suggestions d'autocomplétion
 ├── config.js             # Configuration (non commitée)
@@ -123,7 +135,7 @@ search-for-kids/
 
 ### Encarts de connaissances
 - **Source éducative** : Intégration avec l'API de Vikidia, Wikipédia et Wikimedia Commons pour des informations adaptées aux enfants
-- **Recherche intelligente** : Essai de plusieurs variantes (singulier/pluriel, casse, accents)
+- **Recherche intelligente** : Essai de plusieurs variantes d'une requête
 - **Filtrage pertinent** : Affichage uniquement pour les requêtes éducatives appropriées
 
 ### Détection de langue
@@ -157,7 +169,7 @@ Personnalisez les encarts de connaissances dans `config.js` :
 
 ## Technologies utilisées
 
-- **Frontend** : HTML5/CSS3, JavaScript ES6+
+- **Frontend** : HTML5, CSS3, JavaScript (ES6+)
 - **APIs** : Google Custom Search Engine API, MediaWiki API (Vikidia, Wikipédia)
 - **Stockage** : localStorage pour le cache et la gestion du quota
 - **Design** : CSS Grid/Flexbox, design responsive

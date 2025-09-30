@@ -11,8 +11,8 @@ class WebSearchCache {
         this.loadFromStorage();
     }
 
-    createKey(query, page, sort = '') {
-        return `web:${query.toLowerCase().trim()}:${page}:${sort}`;
+    createKey(query, page, sort = '', configSignature = 'default') {
+        return `web:${query.toLowerCase().trim()}:${page}:${sort}:${configSignature}`;
     }
 
     saveToStorage() {
@@ -47,8 +47,8 @@ class WebSearchCache {
         }
     }
 
-    get(query, page, sort = '') {
-        const key = this.createKey(query, page, sort);
+    get(query, page, sort = '', configSignature) {
+        const key = this.createKey(query, page, sort, configSignature);
         const entry = this.cache.get(key);
 
         if (!entry) return null;
@@ -61,13 +61,13 @@ class WebSearchCache {
         return entry.data;
     }
 
-    set(query, page, data, sort = '') {
+    set(query, page, data, sort = '', configSignature) {
         if (this.cache.size >= this.maxCacheSize) {
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
         }
 
-        const key = this.createKey(query, page, sort);
+        const key = this.createKey(query, page, sort, configSignature);
         this.cache.set(key, {
             data: data,
             timestamp: Date.now()
@@ -100,8 +100,8 @@ class ImageSearchCache {
         }
     }
 
-    createKey(query, page) {
-        return `images:${query.toLowerCase().trim()}:${page}`;
+    createKey(query, page, configSignature = 'default') {
+        return `images:${query.toLowerCase().trim()}:${page}:${configSignature}`;
     }
 
     saveToStorage() {
@@ -139,10 +139,10 @@ class ImageSearchCache {
         }
     }
 
-    get(query, page) {
+    get(query, page, configSignature) {
         if (!this.enabled) return null;
 
-        const key = this.createKey(query, page);
+        const key = this.createKey(query, page, configSignature);
         const entry = this.cache.get(key);
 
         if (!entry) return null;
@@ -155,7 +155,7 @@ class ImageSearchCache {
         return entry.data;
     }
 
-    set(query, page, data) {
+    set(query, page, data, configSignature) {
         if (!this.enabled) return;
 
         if (this.cache.size >= this.maxCacheSize) {
@@ -163,7 +163,7 @@ class ImageSearchCache {
             this.cache.delete(firstKey);
         }
 
-        const key = this.createKey(query, page);
+        const key = this.createKey(query, page, configSignature);
         this.cache.set(key, {
             data: data,
             timestamp: Date.now()
@@ -199,7 +199,7 @@ class ImageSearchCache {
 // Gestionnaire de quota API
 class ApiQuotaManager {
     constructor() {
-        this.dailyLimit = 90; // Limite conservative (100 - marge de sécurité)
+        this.dailyLimit = 90;
         this.loadUsage();
     }
 
@@ -352,14 +352,149 @@ async function fetchWikipediaResults(query, lang = 'fr') {
     return [];
 }
 
+async function fetchMeiliSearchResults(query, lang = 'fr') {
+    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) {
+        return [];
+    }
+    console.log(`[MeiliSearch] Démarrage de la recherche pour "${query}"`);
+    const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
+
+    try {
+        const searchUrl = `${API_URL}/indexes/${INDEX_NAME}/search`;
+
+        const payload = {
+            q: query,
+            limit: 5,
+            attributesToRetrieve: ['*', '_formatted'],
+            attributesToHighlight: ['title', 'content'],
+            attributesToCrop: ['content'],
+            cropLength: 30,
+            cropMarker: '...',
+            highlightPreTag: '<span class="searchmatch">',
+            highlightPostTag: '</span>',
+            matchingStrategy: 'last',
+            showMatchesPosition: true
+        };
+
+        console.log(`[MeiliSearch] Envoi de la requête POST à : ${searchUrl}`);
+
+        const searchRes = await fetch(searchUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!searchRes.ok) {
+            throw new Error(`MeiliSearch request failed with status ${searchRes.status}`);
+        }
+
+        const searchData = await searchRes.json();
+        console.log('[MeiliSearch] Réponse brute reçue du serveur :', searchData);
+
+        if (!searchData.hits?.length) {
+            console.log('[MeiliSearch] Aucun "hit" trouvé dans la réponse de MeiliSearch.');
+            return [];
+        }
+
+        console.log(`[MeiliSearch] ${searchData.hits.length} résultat(s) brut(s) trouvé(s).`);
+
+        return searchData.hits.map(hit => {
+            const result = {
+                title: hit._formatted?.title || hit.title,
+                link: hit.url,
+                displayLink: new URL(hit.url).hostname
+            };
+
+            // On utilise `_formatted.content` qui est maintenant tronqué et surligné par MeiliSearch.
+            // On garde un fallback sur les autres champs par sécurité.
+            const formattedContent = hit._formatted?.content || hit._formatted?.excerpt || hit.content || '';
+
+            result.snippet = (formattedContent || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '');
+            result.htmlSnippet = formattedContent || '';
+
+            result.source = SOURCE_NAME;
+            result.weight = WEIGHT || 0.6;
+
+            if (hit.images && hit.images.length > 0 && hit.images[0].url) {
+                result.pagemap = { cse_thumbnail: [{ src: hit.images[0].url }] };
+            }
+            return result;
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des résultats MeiliSearch :', error);
+    }
+    return [];
+}
+
+async function fetchMeiliSearchImageResults(query, lang = 'fr') {
+    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) {
+        return [];
+    }
+
+    const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
+
+    try {
+        const searchUrl = `${API_URL}/indexes/${INDEX_NAME}/search`;
+        const payload = {
+            q: query,
+            limit: 10,
+            attributesToRetrieve: ['*', '_formatted'],
+            attributesToHighlight: ['title', 'content'],
+            attributesToCrop: ['content'],
+            cropLength: 30,
+            cropMarker: '...',
+            highlightPreTag: '<span class="searchmatch">',
+            highlightPostTag: '</span>',
+            matchingStrategy: 'last',
+            showMatchesPosition: true
+        };
+
+        const searchRes = await fetch(searchUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!searchRes.ok) return [];
+        const searchData = await searchRes.json();
+        if (!searchData.hits?.length) return [];
+
+        return searchData.hits
+            .filter(hit => hit.images && hit.images.length > 0)
+            .map(hit => {
+                const image = hit.images[0];
+                return {
+                    title: hit._formatted?.title || hit.title,
+                    link: image.url,
+                    displayLink: new URL(hit.url).hostname,
+                    source: SOURCE_NAME,
+                    weight: WEIGHT || 0.6,
+                    image: {
+                        contextLink: hit.url,
+                        thumbnailLink: image.url,
+                        width: image.width || 400,
+                        height: image.height || 300
+                    }
+                };
+            });
+    } catch (error) {
+        console.error('Erreur MeiliSearch images:', error);
+    }
+    return [];
+}
+
 async function fetchWikimediaCommonsResults(query) {
     if (typeof CONFIG === 'undefined' || !CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
         return [];
     }
     const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.COMMONS_IMAGE_SEARCH_CONFIG;
 
-    // Catégories à exclure pour un public jeune.
-    // Le préfixe `-incategory:` exclut les fichiers de ces catégories.
     const excludedCategories = [
         "Nudity in art", "Erotic art", "Sexual activity", "Violence", "Deaths", "Human corpses"
     ];
@@ -370,10 +505,10 @@ async function fetchWikimediaCommonsResults(query) {
         action: 'query',
         format: 'json',
         list: 'search',
-        srsearch: finalQuery, // Utilise la requête avec exclusions
-        srnamespace: 6,       // Espace de nom "File"
-        srlimit: 10,          // Limite de résultats
-        srwhat: 'text',       // Rechercher dans le texte pour de meilleurs résultats
+        srsearch: finalQuery,
+        srnamespace: 6,
+        srlimit: 10,
+        srwhat: 'text',
         origin: '*'
     };
     const searchUrl = new URL(API_URL);
@@ -400,7 +535,7 @@ async function fetchWikimediaCommonsResults(query) {
 
             return {
                 title: title,
-                link: img.url, // Utiliser l'URL de l'image originale pour le clic
+                link: img.url,
                 displayLink: new URL(BASE_URL).hostname,
                 source: SOURCE_NAME,
                 weight: WEIGHT || 0.7,
@@ -423,27 +558,21 @@ function calculateLexicalScore(item, query) {
 
     if (!lowerQuery) return 0;
 
-    // Utiliser une expression régulière pour diviser en mots, en gérant les caractères spéciaux
     const queryWords = lowerQuery.split(/[\s,.:;!?]+/).filter(w => w.length > 1);
 
     let score = 0;
 
-    // Bonus 1: La requête exacte est dans le titre (poids le plus fort)
     if (title.includes(lowerQuery)) {
         score += 1.0;
     }
-    // Bonus 2: Tous les mots de la requête sont dans le titre
-    // On vérifie `else if` pour ne pas cumuler avec le bonus 1 si la requête exacte est trouvée
     else if (queryWords.length > 1 && queryWords.every(word => title.includes(word))) {
         score += 0.5;
     }
 
-    // Bonus 3: Le titre commence par la requête (très pertinent)
     if (title.startsWith(lowerQuery)) {
         score += 0.4;
     }
 
-    // Bonus 4: Tous les mots de la requête sont dans le snippet (pour les résultats web)
     if (snippet && queryWords.length > 1 && queryWords.every(word => snippet.includes(word))) {
         score += 0.2;
     }
@@ -451,7 +580,59 @@ function calculateLexicalScore(item, query) {
     return score;
 }
 
-function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, query) {
+function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, meiliResults, query) {
+    console.log(`[Merge] Fusion des résultats pour "${query}":`);
+    console.log(`  - Google: ${googleResults.length} résultat(s)`);
+    console.log(`  - Vikidia: ${vikidiaResults.length} résultat(s)`);
+    console.log(`  - Wikipedia: ${wikipediaResults.length} résultat(s)`);
+    console.log(`  - MeiliSearch: ${meiliResults.length} résultat(s)`);
+
+    let allResults = [];
+    const googleWeight = 1.0;
+
+    allResults = allResults.concat(googleResults.map((item, index) => {
+        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        return { ...item, source: item.source || 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
+    }));
+
+    vikidiaResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / vikidiaResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
+    wikipediaResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / wikipediaResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
+    meiliResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / meiliResults.length / 2));
+        const lexicalScore = calculateLexicalScore(item, query);
+        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+    });
+
+    allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+    console.log('[Merge] Résultats triés avant dédoublonnage:', allResults.map(r => ({link: r.link, source: r.source, weight: r.calculatedWeight})));
+
+    const uniqueResults = [];
+    const seenLinks = new Set();
+    const nonGoogleSources = ['Vikidia', 'Wikipedia', CONFIG.MEILISEARCH_CONFIG?.SOURCE_NAME].filter(Boolean);
+
+    for (const result of allResults) {
+        if (!seenLinks.has(result.link) || (seenLinks.has(result.link) && nonGoogleSources.includes(result.source))) {
+            uniqueResults.push(result);
+            seenLinks.add(result.link);
+        }
+    }
+    const finalResults = uniqueResults.reverse().filter((v, i, a) => a.findIndex(t => t.link === v.link) === i).reverse();
+    console.log('[Merge] Résultats finaux après dédoublonnage:', finalResults.map(r => ({link: r.link, source: r.source})));
+    return finalResults;
+}
+
+function mergeAndWeightImageResults(googleResults, commonsResults, meiliResults, query) {
     let allResults = [];
     const googleWeight = 1.0;
 
@@ -461,20 +642,20 @@ function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, 
         return { ...item, source: 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
     }));
 
-    vikidiaResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / vikidiaResults.length / 2));
+    commonsResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / commonsResults.length / 2));
         const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
     });
 
-    wikipediaResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / wikipediaResults.length / 2));
+    meiliResults.forEach((item, index) => {
+        const baseWeight = item.weight * (1 - (index / meiliResults.length / 2));
         const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
+        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
     });
 
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
-    
+
     const uniqueResults = [];
     const seenLinks = new Set();
     for (const result of allResults) {
@@ -486,33 +667,19 @@ function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, 
     return uniqueResults;
 }
 
-function mergeAndWeightImageResults(googleResults, commonsResults, query) {
-    let allResults = [];
-    const googleWeight = 1.0;
+function getWebConfigSignature() {
+    const parts = [];
+    if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) parts.push('v1');
+    if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) parts.push('w1');
+    if (CONFIG.MEILISEARCH_CONFIG?.ENABLED) parts.push('m1');
+    return parts.join('-');
+}
 
-    allResults = allResults.concat(googleResults.map((item, index) => {
-        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query); // Réutilise la même fonction
-        return { ...item, source: 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
-    }));
-
-    commonsResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / commonsResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
-    allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
-    
-    const uniqueResults = [];
-    const seenLinks = new Set();
-    for (const result of allResults) {
-        if (!seenLinks.has(result.link)) {
-            uniqueResults.push(result);
-            seenLinks.add(result.link);
-        }
-    }
-    return uniqueResults;
+function getImageConfigSignature() {
+    const parts = [];
+    if (CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) parts.push('c1');
+    if (CONFIG.MEILISEARCH_CONFIG?.ENABLED) parts.push('m1');
+    return parts.join('-');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -569,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newUrl = new URL(window.location);
             newUrl.searchParams.set('q', query);
             newUrl.searchParams.set('type', type);
-            if (page > 1) newUrl.searchParams.set('p', String(page)); else newUrl.searchParams.delete('p');
+            if (page > 1) newUrl.searchParams.set('p', page); else newUrl.searchParams.delete('p');
             if (sort) newUrl.searchParams.set('sort', sort); else newUrl.searchParams.delete('sort');
             window.history.pushState({}, '', newUrl);
         } catch (e) { /* ignore */ }
@@ -588,20 +755,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let finalQuery = query;
 
         if (type === 'web') {
-            // Toujours exclure commons.wikimedia.org des résultats web, car ce sont des pages de fichiers.
             let exclusions = ' -site:commons.wikimedia.org';
-
-            // Exclure les autres sources web si elles sont activées pour éviter les doublons.
             if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) {
                 exclusions += ' -site:vikidia.org';
             }
             if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) {
                 exclusions += ' -site:wikipedia.org';
             }
+            if (CONFIG.MEILISEARCH_CONFIG?.ENABLED && CONFIG.MEILISEARCH_CONFIG.BASE_URLS) {
+                const urls = Array.isArray(CONFIG.MEILISEARCH_CONFIG.BASE_URLS)
+                    ? CONFIG.MEILISEARCH_CONFIG.BASE_URLS
+                    : [CONFIG.MEILISEARCH_CONFIG.BASE_URLS];
+                urls.forEach(url => {
+                    if (url) {
+                        const hostname = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0];
+                        exclusions += ` -site:${hostname}`;
+                    }
+                });
+            }
             finalQuery += exclusions;
-
         } else if (type === 'images') {
-            // Pour les images, exclure tout le domaine wikimedia.org si on cherche directement sur Commons.
             if (CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
                 finalQuery += ' -site:wikimedia.org';
             }
@@ -648,54 +821,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function performSearch(query, type = 'web', page = 1, sort = '') {
+    async function performSearch(query, type = 'web', page = 1) {
         if (!query) return;
+        const cleanedQuery = query.split('?')[0].trim();
+        if (!cleanedQuery) return;
+
         showLoading();
         resultsContainer.innerHTML = '';
         statsEl.innerHTML = '';
         paginationEl.innerHTML = '';
 
         if (typeof tryDisplayKnowledgePanel === 'function' && type === 'web' && page === 1) {
-            tryDisplayKnowledgePanel(query);
+            tryDisplayKnowledgePanel(cleanedQuery);
         }
 
-        let cachedData = (type === 'web') ? webCache.get(query, page, sort) : imageCache.get(query, page);
+        const configSignature = type === 'web' ? getWebConfigSignature() : getImageConfigSignature();
+        let cachedData = (type === 'web')
+            ? webCache.get(cleanedQuery, page, currentSort, configSignature)
+            : imageCache.get(cleanedQuery, page, configSignature);
+
         if (cachedData) {
             hideLoading();
-            displayResults(cachedData, type, query, page);
+            displayResults(cachedData, type, cleanedQuery, page);
             updateQuotaDisplay();
             return;
         }
 
         try {
             let combinedData;
+            const lang = detectQueryLanguage(cleanedQuery) || i18n.getLang();
+
             if (type === 'web') {
-                // Détecte la langue, sinon utilise la langue de l'interface comme secours.
-                const lang = detectQueryLanguage(query) || i18n.getLang();
-                const [googleResponse, vikidiaResults, wikipediaResults] = await Promise.all([
-                    fetch(buildGoogleCseApiUrl(query, type, page, sort)).then(res => res.json()),
-                    fetchVikidiaResults(query, lang),
-                    fetchWikipediaResults(query, lang)
+                const googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
+                    .then(res => res.json())
+                    .catch(err => {
+                        console.warn("L'appel à l'API Google a échoué, mais on continue avec les autres sources.", err);
+                        return { items: [], searchInformation: {} };
+                    });
+
+                const [googleResponse, vikidiaResults, wikipediaResults, meiliResults] = await Promise.all([
+                    googlePromise,
+                    fetchVikidiaResults(cleanedQuery, lang),
+                    fetchWikipediaResults(cleanedQuery, lang),
+                    fetchMeiliSearchResults(cleanedQuery, lang)
                 ]);
-                if (googleResponse.error) throw new Error(googleResponse.error.message);
-                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults, query);
+
+                if (googleResponse.error) {
+                    console.error("Erreur de l'API Google:", googleResponse.error.message);
+                }
+
+                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults, meiliResults, cleanedQuery);
                 combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
-                webCache.set(query, page, combinedData, sort);
-            } else { // Images
-                const [googleResponse, commonsResults] = await Promise.all([
-                    fetch(buildGoogleCseApiUrl(query, type, page, sort)).then(res => res.json()),
-                    fetchWikimediaCommonsResults(query)
+                webCache.set(cleanedQuery, page, combinedData, currentSort, configSignature);
+            } else {
+                const [googleResponse, commonsResults, meiliResults] = await Promise.all([
+                    fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
+                        .then(res => res.json())
+                        .catch(err => {
+                            console.warn("L'appel à l'API Google Images a échoué, mais on continue.", err);
+                            return { items: [], searchInformation: {} };
+                        }),
+                    fetchWikimediaCommonsResults(cleanedQuery),
+                    fetchMeiliSearchImageResults(cleanedQuery, lang)
                 ]);
-                if (googleResponse.error) throw new Error(googleResponse.error.message);
-                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults, query);
+
+                if (googleResponse.error) {
+                    console.error("Erreur de l'API Google Images:", googleResponse.error.message);
+                }
+
+                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults, meiliResults, cleanedQuery);
                 combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
-                imageCache.set(query, page, combinedData);
+                imageCache.set(cleanedQuery, page, combinedData, configSignature);
             }
 
             hideLoading();
             quotaManager.recordRequest();
             updateQuotaDisplay();
-            displayResults(combinedData, type, query, page);
+            displayResults(combinedData, type, cleanedQuery, page);
         } catch (err) {
             hideLoading();
             resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;"><p>Une erreur s'est produite.</p><p style="font-size:14px; color:#70757a;">${err.message || err}</p></div>`;
@@ -726,7 +928,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function createSearchResult(item) {
         const resultDiv = document.createElement('div');
         resultDiv.className = 'search-result';
-        const thumbnail = (item.pagemap?.cse_thumbnail?.[0]) ? `<img src="${item.pagemap.cse_thumbnail[0].src}" alt="">` : '';
+        const thumbnailSrc = item.pagemap?.cse_thumbnail?.[0]?.src;
+        const thumbnail = thumbnailSrc ? `<img src="${thumbnailSrc}" alt="">` : '';
+
         resultDiv.innerHTML = `
           <div class="result-thumbnail">${thumbnail}</div>
           <div class="result-content">
@@ -748,8 +952,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const height = item.image?.height || 0;
         const aspectRatio = width && height ? width / height : 1;
         let gridSpan = 1, aspectRatioCSS = '1 / 1';
-        if (aspectRatio > 1.5) { gridSpan = 2; aspectRatioCSS = '2 / 1'; } 
-        else if (aspectRatio > 1.2) { aspectRatioCSS = '4 / 3'; } 
+        if (aspectRatio > 1.5) { gridSpan = 2; aspectRatioCSS = '2 / 1'; }
+        else if (aspectRatio > 1.2) { aspectRatioCSS = '4 / 3'; }
         else if (aspectRatio < 0.7) { aspectRatioCSS = '3 / 4'; }
 
         div.style.gridColumn = `span ${gridSpan}`;

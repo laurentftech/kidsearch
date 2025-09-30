@@ -449,6 +449,11 @@ body {
     max-height: none;
 }
 
+.result-snippet .searchmatch {
+    font-weight: bold;
+    color: var(--text-color-primary);
+}
+
 /* Knowledge Panel */
 .knowledge-panel {
     background: var(--background-color-white);

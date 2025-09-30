@@ -20,6 +20,7 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 - **Custom autocomplete**: 200+ educational suggestions with keyboard navigation
 - **Recommended sites**: Curated selection of quality educational resources
 - **Image search**: Image search mode with preview functionality
+- **Hybrid Search**: Combines Google CSE with other sources like Vikidia, Wikipedia, Wikimedia Commons, and even your own MeiliSearch instance.
 - **Knowledge panels**: Contextual information from Vikidia, Wikipedia, and Wikimedia Commons to enrich results
 - **Smart caching**: Intelligent caching system to optimize performance and save API quota
 - **Quota management**: Automatic monitoring of Google API usage
@@ -56,7 +57,18 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
            EXTRACT_LENGTH: 300,
            THUMBNAIL_SIZE: 150,
            DISABLE_THUMBNAILS: false
-       }
+       },
+       // Optional: Add your own MeiliSearch instance for custom results
+       MEILISEARCH_CONFIG: {
+           ENABLED: false, // Set to true to enable
+           API_URL: 'https://your-meili-instance.com',
+           API_KEY: 'your_meili_search_api_key',
+           INDEX_NAME: 'your_index_name',
+           SOURCE_NAME: 'My Custom Source',
+           WEIGHT: 0.6, // Adjust to prioritize results
+           BASE_URLS: ['https://your-website.com'] // Base URLs of indexed sites (to exclude from Google)
+       },
+       // ... other configs for Wikipedia, Vikidia, etc.
    };
    ```
 
@@ -98,6 +110,7 @@ search-for-kids/
 ├── style.css               # Main stylesheet
 ├── search.js              # Main search engine with cache and quota
 ├── loader.js              # Dynamically loads config.js
+├── i18n.js                # Internationalization script
 ├── knowledge-panels.js    # Vikidia knowledge panels
 ├── suggestions.json       # Autocomplete suggestions database
 ├── config.js             # Configuration (not committed)
@@ -123,7 +136,7 @@ search-for-kids/
 
 ### Knowledge Panels
 - **Educational source**: Integration with Vikidia, Wikipedia, and Wikimedia Commons for child-appropriate information
-- **Smart search**: Tries multiple variants (singular/plural, case, accents)
+- **Smart search**: Tries multiple variants of a query
 - **Relevant filtering**: Only displays for appropriate educational queries
 
 ### Language Detection
@@ -157,7 +170,7 @@ Customize knowledge panels in `config.js`:
 
 ## Technologies Used
 
-- **Frontend**: HTML5/CSS3, JavaScript ES6+
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
 - **APIs**: Google Custom Search Engine API, MediaWiki API (Vikidia, Wikipedia)
 - **Storage**: localStorage for cache and quota management
 - **Design**: CSS Grid/Flexbox, responsive design
