@@ -22,7 +22,7 @@ const CONFIG = {
 
     // Configuration pour la recherche sur Wikipedia
     WIKIPEDIA_SEARCH_CONFIG: {
-        ENABLED: true,
+        ENABLED: false,
         API_URL: 'https://fr.wikipedia.org/w/api.php',
         BASE_URL: 'https://fr.wikipedia.org/wiki/',
         SOURCE_NAME: "Wikipedia",
