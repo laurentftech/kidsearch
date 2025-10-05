@@ -20,6 +20,7 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 - **Autocomplétion personnalisée** : Plus de 200 suggestions éducatives avec navigation clavier
 - **Sites recommandés** : Sélection de ressources pédagogiques de qualité
 - **Recherche d'images** : Mode de recherche d'images avec prévisualisation
+- **Recherche Hybride** : Combine les résultats de Google CSE avec d'autres sources comme Vikidia, Wikipédia, Wikimedia Commons, et même votre propre instance MeiliSearch.
 - **Encarts de connaissances** : Informations contextuelles depuis Vikidia, Wikipédia et Wikimedia Commons pour enrichir les résultats
 - **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
 - **Gestion du quota** : Surveillance automatique de l'utilisation de l'API Google
@@ -141,6 +142,10 @@ search-for-kids/
 ### Détection de langue
 - **Priorisation française** : Détection automatique des requêtes en français
 - **Meilleurs résultats** : Application du filtre `lang_fr` pour des résultats plus pertinents
+
+### Intégration Meilisearch
+- Vous pouvez ajouter votre propre instance Meilisearch pour inclure des résultats personnalisés dans votre moteur de recherche.
+- Pour peupler votre instance, vous pouvez utiliser le projet compagnon MeilisearchCrawler, un robot d'indexation (crawler) web conçu pour indexer du contenu pour Meilisearch.
 
 ## Personnalisation
 

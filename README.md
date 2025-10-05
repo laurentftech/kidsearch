@@ -143,6 +143,10 @@ search-for-kids/
 - **French prioritization**: Automatic detection of French queries
 - **Better results**: Apply `lang_fr` filter for more relevant results
 
+### Meilisearch Integration
+- You can add your own Meilisearch instance to include custom results in your search engine.
+- To populate your instance, you can use the companion project [MeilisearchCrawler](https://github.com/laurentftech/MeilisearchCrawler), a web crawler designed to index content for Meilisearch.
+
 ## Customization
 
 ### Adding Suggestions
