@@ -1,12 +1,10 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const voiceSearchButton = document.getElementById('voiceSearchButton');
     const searchInput = document.getElementById('searchInput');
 
-    if (!voiceSearchButton || !searchInput) {
-        return;
-    }
+    if (!voiceSearchButton || !searchInput) return;
 
+    // Compatibilité API Web Speech
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         voiceSearchButton.style.display = 'none';
@@ -15,52 +13,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
-    recognition.lang = document.documentElement.lang === 'en' ? 'en-US' : 'fr-FR';
+    recognition.lang = navigator.language || 'fr-FR'; // langue automatique
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
     let isRecognizing = false;
 
-    voiceSearchButton.addEventListener('click', () => {
-        if (isRecognizing) {
-            recognition.stop();
-            return;
-        }
-        recognition.start();
-    });
-
-    recognition.onstart = () => {
+    // Effets visuels doux
+    const startListening = () => {
         isRecognizing = true;
         voiceSearchButton.classList.add('recording');
-        voiceSearchButton.textContent = '🔴';
+        voiceSearchButton.textContent = '🎧';
+        searchInput.classList.add('listening');
     };
 
-    recognition.onend = () => {
+    const stopListening = () => {
         isRecognizing = false;
         voiceSearchButton.classList.remove('recording');
         voiceSearchButton.textContent = '🎤';
+        searchInput.classList.remove('listening');
     };
 
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        searchInput.value = transcript;
-        // Automatically trigger search
-        const form = searchInput.closest('form');
-        if (form) {
-            const submitEvent = new Event('submit', { cancelable: true });
-            form.dispatchEvent(submitEvent);
-             if (!submitEvent.defaultPrevented) {
-                // The search.js logic should handle the form submission.
-                // We just need to make sure the input has the value.
-                const doSearchFunction = window.doSearch || document.querySelector('form').onsubmit;
-                 if (typeof doSearchFunction === 'function') {
-                    doSearchFunction();
-                }
-            }
+    voiceSearchButton.addEventListener('click', () => {
+        if (isRecognizing) {
+            recognition.stop();
+        } else {
+            recognition.start();
         }
+    });
+
+    recognition.onstart = startListening;
+    recognition.onend = stopListening;
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        searchInput.value = transcript;
+
+        // Trigger de recherche
+        const searchFn = window.performSearch || window.doSearch || (() => {});
+        searchFn(transcript);
     };
 
     recognition.onerror = (event) => {
         console.error('Voice recognition error:', event.error);
+        stopListening();
+
+        // Feedback visible et doux
+        switch(event.error) {
+            case 'no-speech':
+                voiceSearchButton.title = 'Aucune voix détectée. Réessaie !';
+                break;
+            case 'not-allowed':
+                voiceSearchButton.title = 'Micro non autorisé.';
+                break;
+            default:
+                voiceSearchButton.title = 'Erreur de reconnaissance. Réessaie !';
+        }
     };
 });

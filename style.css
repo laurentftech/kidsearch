@@ -173,6 +173,21 @@ body {
     border-bottom: none;
 }
 
+/* Wrapper pour l'input et les icônes internes */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+}
+
+.input-wrapper input[type="text"] {
+    width: 100%;
+    box-sizing: border-box; /* S'assure que le padding est inclus dans la largeur */
+    /* Espace pour les deux icônes */
+    padding-right: 5.5rem !important;
+}
+
 /* ========================================================================= */
 /* Results Page Styles (`results.html`)                                      */
 /* ========================================================================= */
@@ -190,12 +205,14 @@ body {
     position: relative;
 }
 
-.is-homepage input[type="text"] {
+.is-homepage .input-wrapper {
     flex: 1;
+}
+
+.is-homepage input[type="text"] {
     padding: 0.9rem 1rem;
     font-size: 1.2rem;
     border: 1px solid var(--border-color-input);
-    padding-right: 40px;
     border-radius: var(--border-radius-round) 0 0 var(--border-radius-round);
     outline: none;
 }
@@ -217,19 +234,6 @@ body {
 
 .is-homepage button[type="submit"]:hover {
     background-color: var(--primary-color-hover);
-}
-
-.is-homepage .clear-button {
-    position: absolute;
-    right: 5.3rem;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    font-size: 1.5rem;
-    color: var(--text-color-tertiary);
-    display: none;
-    line-height: 1;
-    padding: 0 5px;
 }
 
 .is-resultspage .search-container {
@@ -259,12 +263,14 @@ body {
     max-width: 720px;
 }
 
-.is-resultspage input[type="text"] {
+.is-resultspage .input-wrapper {
     flex: 1;
+}
+
+.is-resultspage input[type="text"] {
     padding: 0.5rem 1rem;
     font-size: 1rem;
     border: 1px solid var(--border-color-input);
-    padding-right: 40px;
     border-radius: var(--border-radius-round) 0 0 var(--border-radius-round);
     outline: none;
 }
@@ -286,19 +292,6 @@ body {
 
 .is-resultspage button[type="submit"]:hover {
     background-color: var(--primary-color-hover);
-}
-
-.is-resultspage .clear-button {
-    position: absolute;
-    right: 3.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    font-size: 1.5rem;
-    color: var(--text-color-tertiary);
-    display: none;
-    line-height: 1;
-    padding: 0 5px;
 }
 
 /* Search Tabs */
@@ -810,6 +803,8 @@ body {
         flex-shrink: 0;
         order: 1; /* Example of mobile-specific layout change */
     }
+
+    /* Plus besoin d'ajustements spécifiques pour les icônes grâce au .input-wrapper */
 }
 
 /* Responsive Image Grid Adjustments */
@@ -861,4 +856,74 @@ body {
         background-color: var(--background-color-light);
         transform: scale(0.98);
     }
+}
+
+/* Bouton micro */
+.clear-button {
+    /* Positionnement absolu pour coexister avec le micro */
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: var(--text-color-tertiary);
+    display: none;
+    line-height: 1;
+    padding: 0 5px;
+}
+
+#voiceSearchButton {
+    /* Les icônes sont maintenant positionnées à droite à l'intérieur du wrapper */
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    /* Forcer une taille fixe et centrer l'icône à l'intérieur */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem; /* Largeur fixe */
+    height: 2.5rem; /* Hauteur fixe */
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.3s ease;
+    color: #4a90e2; /* bleu doux */
+}
+
+.mic-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: currentColor;
+}
+
+.clear-button {
+    right: 3rem;
+}
+
+#voiceSearchButton {
+    right: 0.5rem;
+}
+
+#voiceSearchButton:hover {
+    opacity: 0.8; /* Effet de survol plus discret */
+}
+
+#voiceSearchButton.recording {
+    animation: pulse 1.2s infinite;
+    color: var(--primary-color); /* Utilise le bleu principal */
+}
+
+@keyframes pulse {
+    0% { transform: translateY(-50%) scale(1); opacity: 1; }
+    50% { transform: translateY(-50%) scale(1.15); opacity: 0.8; }
+    100% { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+
+/* Halo discret sur la barre de recherche */
+#searchInput {
+    transition: box-shadow 0.3s ease;
+}
+
+#searchInput.listening {
+    box-shadow: 0 0 8px 2px rgba(26, 115, 232, 0.4); /* Halo bleu basé sur la couleur primaire */
 }
