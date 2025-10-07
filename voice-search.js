@@ -4,6 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!voiceSearchButton || !searchInput) return;
 
+    // Désactiver si spécifié dans la config
+    if (typeof CONFIG !== 'undefined' && CONFIG.VOICE_SEARCH_ENABLED === false) {
+        voiceSearchButton.style.display = 'none';
+        return;
+    }
+
     // Compatibilité API Web Speech
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {

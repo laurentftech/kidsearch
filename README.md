@@ -20,6 +20,7 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
 - **Custom autocomplete**: 200+ educational suggestions with keyboard navigation
 - **Recommended sites**: Curated selection of quality educational resources
 - **Image search**: Image search mode with preview functionality
+- **Voice Search**: Search using your voice with the microphone icon.
 - **Hybrid Search**: Combines Google CSE with other sources like Vikidia, Wikipedia, Wikimedia Commons, and even your own MeiliSearch instance.
 - **Knowledge panels**: Contextual information from Vikidia, Wikipedia, and Wikimedia Commons to enrich results
 - **Smart caching**: Intelligent caching system to optimize performance and save API quota
@@ -49,6 +50,7 @@ When combined with Google Family Link (or another whitelist system) on Chrome, y
    const CONFIG = {
        GOOGLE_CSE_ID: 'your_cse_id_here',
        GOOGLE_API_KEY: 'YOUR_API_KEY_HERE',
+       VOICE_SEARCH_ENABLED: true, // Set to false to disable voice search
        KNOWLEDGE_PANEL_CONFIG: {
            ENABLED: true,
            API_URL: 'https://fr.vikidia.org/w/api.php',

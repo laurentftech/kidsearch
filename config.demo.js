@@ -9,6 +9,9 @@ const CONFIG = {
     // Clé API Google (nécessaire pour l'API JSON)
     GOOGLE_API_KEY: 'AIzaSyCmFZ1NVQJo4H-Dv0mFAggAu5PO76TrfwA', // La recherche ne fonctionnera pas sans une vraie clé
 
+    // Activer ou désactiver la recherche vocale
+    VOICE_SEARCH_ENABLED: true,
+
     // Configuration pour les panneaux de connaissances
     KNOWLEDGE_PANEL_CONFIG: {
         ENABLED: true,

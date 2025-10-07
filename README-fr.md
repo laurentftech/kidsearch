@@ -20,6 +20,7 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
 - **Autocomplétion personnalisée** : Plus de 200 suggestions éducatives avec navigation clavier
 - **Sites recommandés** : Sélection de ressources pédagogiques de qualité
 - **Recherche d'images** : Mode de recherche d'images avec prévisualisation
+- **Recherche vocale** : Effectuez des recherches avec votre voix grâce à l'icône micro.
 - **Recherche Hybride** : Combine les résultats de Google CSE avec d'autres sources comme Vikidia, Wikipédia, Wikimedia Commons, et même votre propre instance MeiliSearch.
 - **Encarts de connaissances** : Informations contextuelles depuis Vikidia, Wikipédia et Wikimedia Commons pour enrichir les résultats
 - **Cache intelligent** : Système de mise en cache pour optimiser les performances et économiser le quota API
@@ -49,6 +50,7 @@ En l’utilisant combiné avec Google Family Link (ou tout autre système de lis
    const CONFIG = {
        GOOGLE_CSE_ID: 'votre_id_cse_ici',
        GOOGLE_API_KEY: 'VOTRE_API_KEY_ICI',
+       VOICE_SEARCH_ENABLED: true, // Mettre à false pour désactiver la recherche vocale
        KNOWLEDGE_PANEL_CONFIG: {
            ENABLED: true,
            API_URL: 'https://fr.vikidia.org/w/api.php',
