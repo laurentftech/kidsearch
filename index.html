@@ -15,6 +15,7 @@
     <form class="search-bar" onsubmit="return false;">
         <input type="text" name="q" id="searchInput" required autocomplete="off" data-i18n="placeholder" data-i18n-attr="placeholder">
         <span class="clear-button" id="clearButton" style="display: none;">&times;</span>
+        <button type="button" id="voiceSearchButton">🎤</button>
         <button type="submit" id="searchButton">🔍</button>
     </form>
     <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
@@ -38,6 +39,7 @@
 <script src="loader.js"></script>
 <script src="i18n.js"></script>
 <script src="search.js"></script>
+<script src="voice-search.js"></script>
 <script>
     // Appeler la mise à jour du contenu au chargement
     document.addEventListener('DOMContentLoaded', () => {
