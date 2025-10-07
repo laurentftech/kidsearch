@@ -1,367 +1,94 @@
-// search.js — version complète, autonome avec caches séparés
-// IMPORTANT: Assurez-vous que votre fichier config.js (ou config.demo.js)
-// contient les configurations pour Vikidia, Wikipedia et Wikimedia Commons.
+// search.js — version complète avec pagination optimisée
+// Sources secondaires (Vikidia, Wikipedia, MeiliSearch, Commons) uniquement en page 1
 
-// Classes de cache séparées
 class WebSearchCache {
-    constructor() {
-        this.cache = new Map();
-        this.maxCacheSize = 200;
-        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
-        this.loadFromStorage();
-    }
-
-    createKey(query, page, sort = '', configSignature = 'default') {
-        return `web:${query.toLowerCase().trim()}:${page}:${sort}:${configSignature}`;
-    }
-
-    saveToStorage() {
-        try {
-            const serialized = JSON.stringify([...this.cache]);
-            localStorage.setItem('web_search_cache', serialized);
-        } catch (e) {
-            console.warn('Impossible de sauvegarder le cache web:', e);
-        }
-    }
-
-    loadFromStorage() {
-        try {
-            const stored = localStorage.getItem('web_search_cache');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                this.cache = new Map(parsed);
-                this.cleanExpiredEntries();
-            }
-        } catch (e) {
-            console.warn('Impossible de charger le cache web:', e);
-            this.cache = new Map();
-        }
-    }
-
-    cleanExpiredEntries() {
-        const now = Date.now();
-        for (const [key, value] of this.cache) {
-            if (now - value.timestamp > this.cacheExpiry) {
-                this.cache.delete(key);
-            }
-        }
-    }
-
-    get(query, page, sort = '', configSignature) {
-        const key = this.createKey(query, page, sort, configSignature);
-        const entry = this.cache.get(key);
-
-        if (!entry) return null;
-
-        if (Date.now() - entry.timestamp > this.cacheExpiry) {
-            this.cache.delete(key);
-            return null;
-        }
-
-        return entry.data;
-    }
-
-    set(query, page, data, sort = '', configSignature) {
-        if (this.cache.size >= this.maxCacheSize) {
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
-        }
-
-        const key = this.createKey(query, page, sort, configSignature);
-        this.cache.set(key, {
-            data: data,
-            timestamp: Date.now()
-        });
-
-        this.saveToStorage();
-    }
-
-    getStats() {
-        return {
-            size: this.cache.size,
-            maxSize: this.maxCacheSize
-        };
-    }
-
-    clear() {
-        this.cache.clear();
-        localStorage.removeItem('web_search_cache');
-    }
+    constructor() { this.cache = new Map(); this.maxCacheSize = 200; this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; this.loadFromStorage(); }
+    createKey(query, page, sort = '', configSignature = 'default') { return `web:${query.toLowerCase().trim()}:${page}:${sort}:${configSignature}`; }
+    saveToStorage() { try { localStorage.setItem('web_search_cache', JSON.stringify([...this.cache])); } catch (e) {} }
+    loadFromStorage() { try { const stored = localStorage.getItem('web_search_cache'); if (stored) { this.cache = new Map(JSON.parse(stored)); this.cleanExpiredEntries(); } } catch (e) { this.cache = new Map(); } }
+    cleanExpiredEntries() { const now = Date.now(); for (const [key, value] of this.cache) { if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key); } }
+    get(query, page, sort = '', configSignature) { const entry = this.cache.get(this.createKey(query, page, sort, configSignature)); if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null; return entry.data; }
+    set(query, page, data, sort = '', configSignature) { if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value); this.cache.set(this.createKey(query, page, sort, configSignature), { data, timestamp: Date.now() }); this.saveToStorage(); }
+    getStats() { return { size: this.cache.size, maxSize: this.maxCacheSize }; }
+    clear() { this.cache.clear(); localStorage.removeItem('web_search_cache'); }
 }
 
 class ImageSearchCache {
-    constructor() {
-        this.cache = new Map();
-        this.maxCacheSize = 100;
-        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
-        this.enabled = true;
-        if (this.enabled) {
-            this.loadFromStorage();
-        }
-    }
-
-    createKey(query, page, configSignature = 'default') {
-        return `images:${query.toLowerCase().trim()}:${page}:${configSignature}`;
-    }
-
-    saveToStorage() {
-        if (!this.enabled) return;
-        try {
-            const serialized = JSON.stringify([...this.cache]);
-            localStorage.setItem('image_search_cache', serialized);
-        } catch (e) {
-            console.warn('Impossible de sauvegarder le cache images:', e);
-        }
-    }
-
-    loadFromStorage() {
-        if (!this.enabled) return;
-        try {
-            const stored = localStorage.getItem('image_search_cache');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                this.cache = new Map(parsed);
-                this.cleanExpiredEntries();
-            }
-        } catch (e) {
-            console.warn('Impossible de charger le cache images:', e);
-            this.cache = new Map();
-        }
-    }
-
-    cleanExpiredEntries() {
-        if (!this.enabled) return;
-        const now = Date.now();
-        for (const [key, value] of this.cache) {
-            if (now - value.timestamp > this.cacheExpiry) {
-                this.cache.delete(key);
-            }
-        }
-    }
-
-    get(query, page, configSignature) {
-        if (!this.enabled) return null;
-
-        const key = this.createKey(query, page, configSignature);
-        const entry = this.cache.get(key);
-
-        if (!entry) return null;
-
-        if (Date.now() - entry.timestamp > this.cacheExpiry) {
-            this.cache.delete(key);
-            return null;
-        }
-
-        return entry.data;
-    }
-
-    set(query, page, data, configSignature) {
-        if (!this.enabled) return;
-
-        if (this.cache.size >= this.maxCacheSize) {
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
-        }
-
-        const key = this.createKey(query, page, configSignature);
-        this.cache.set(key, {
-            data: data,
-            timestamp: Date.now()
-        });
-
-        this.saveToStorage();
-    }
-
-    getStats() {
-        return {
-            size: this.enabled ? this.cache.size : 0,
-            maxSize: this.maxCacheSize,
-            enabled: this.enabled
-        };
-    }
-
-    clear() {
-        this.cache.clear();
-        localStorage.removeItem('image_search_cache');
-    }
-
-    enable() {
-        this.enabled = true;
-        this.loadFromStorage();
-    }
-
-    disable() {
-        this.enabled = false;
-        this.clear();
-    }
+    constructor() { this.cache = new Map(); this.maxCacheSize = 100; this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; this.enabled = true; if (this.enabled) this.loadFromStorage(); }
+    createKey(query, page, configSignature = 'default') { return `images:${query.toLowerCase().trim()}:${page}:${configSignature}`; }
+    saveToStorage() { if (!this.enabled) return; try { localStorage.setItem('image_search_cache', JSON.stringify([...this.cache])); } catch (e) {} }
+    loadFromStorage() { if (!this.enabled) return; try { const stored = localStorage.getItem('image_search_cache'); if (stored) { this.cache = new Map(JSON.parse(stored)); this.cleanExpiredEntries(); } } catch (e) { this.cache = new Map(); } }
+    cleanExpiredEntries() { if (!this.enabled) return; const now = Date.now(); for (const [key, value] of this.cache) { if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key); } }
+    get(query, page, configSignature) { if (!this.enabled) return null; const entry = this.cache.get(this.createKey(query, page, configSignature)); if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null; return entry.data; }
+    set(query, page, data, configSignature) { if (!this.enabled) return; if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value); this.cache.set(this.createKey(query, page, configSignature), { data, timestamp: Date.now() }); this.saveToStorage(); }
+    getStats() { return { size: this.enabled ? this.cache.size : 0, maxSize: this.maxCacheSize, enabled: this.enabled }; }
+    clear() { this.cache.clear(); localStorage.removeItem('image_search_cache'); }
+    enable() { this.enabled = true; this.loadFromStorage(); }
+    disable() { this.enabled = false; this.clear(); }
 }
 
-// Gestionnaire de quota API
 class ApiQuotaManager {
-    constructor() {
-        this.dailyLimit = 90;
-        this.loadUsage();
-    }
-
-    loadUsage() {
-        const stored = localStorage.getItem('api_usage');
-        if (stored) {
-            const data = JSON.parse(stored);
-            const today = new Date().toDateString();
-
-            if (data.date === today) {
-                this.todayUsage = data.count;
-            } else {
-                this.todayUsage = 0;
-                this.saveUsage();
-            }
-        } else {
-            this.todayUsage = 0;
-        }
-    }
-
-    saveUsage() {
-        const data = {
-            date: new Date().toDateString(),
-            count: this.todayUsage
-        };
-        localStorage.setItem('api_usage', JSON.stringify(data));
-    }
-
-    canMakeRequest() {
-        return this.todayUsage < this.dailyLimit;
-    }
-
-    recordRequest() {
-        this.todayUsage++;
-        this.saveUsage();
-    }
-
-    getUsage() {
-        return {
-            used: this.todayUsage,
-            limit: this.dailyLimit,
-            remaining: this.dailyLimit - this.todayUsage
-        };
-    }
-
-    getRemainingRequests() {
-        return Math.max(0, this.dailyLimit - this.todayUsage);
-    }
+    constructor() { this.dailyLimit = 90; this.loadUsage(); }
+    loadUsage() { const stored = localStorage.getItem('api_usage'); if (stored) { const data = JSON.parse(stored); const today = new Date().toDateString(); this.todayUsage = data.date === today ? data.count : 0; if (data.date !== today) this.saveUsage(); } else { this.todayUsage = 0; } }
+    saveUsage() { localStorage.setItem('api_usage', JSON.stringify({ date: new Date().toDateString(), count: this.todayUsage })); }
+    recordRequest() { this.todayUsage++; this.saveUsage(); }
+    getUsage() { return { used: this.todayUsage, limit: this.dailyLimit, remaining: this.dailyLimit - this.todayUsage }; }
 }
 
 async function fetchVikidiaResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) {
-        return [];
-    }
+    if (typeof CONFIG === 'undefined' || !CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) return [];
     const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.VIKIDIA_SEARCH_CONFIG;
     const apiUrl = API_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
     const baseUrl = BASE_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
-    const searchParams = { action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' };
-    const searchUrl = new URL(apiUrl);
-    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
-
     try {
-        const searchRes = await fetch(searchUrl.toString());
-        const searchData = await searchRes.json();
+        const searchUrl = new URL(apiUrl);
+        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+        const searchData = await (await fetch(searchUrl)).json();
         if (!searchData.query?.search?.length) return [];
-
-        const searchResults = searchData.query.search;
-        const titles = searchResults.map(item => item.title).join('|');
-
-        const thumbParams = { action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const titles = searchData.query.search.map(i => i.title).join('|');
         const thumbUrl = new URL(apiUrl);
-        Object.keys(thumbParams).forEach(key => thumbUrl.searchParams.append(key, thumbParams[key]));
-
-        const thumbRes = await fetch(thumbUrl.toString());
-        const thumbData = await thumbRes.json();
+        Object.entries({ action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => thumbUrl.searchParams.append(k, v));
+        const thumbData = await (await fetch(thumbUrl)).json();
         const thumbMap = {};
-        if (thumbData.query?.pages) {
-            Object.values(thumbData.query.pages).forEach(page => {
-                if (page.thumbnail) thumbMap[page.title] = page.thumbnail.source;
-            });
-        }
-
-        return searchResults.map(item => {
-            const result = {
-                title: item.title,
-                link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
-                displayLink: new URL(baseUrl).hostname,
-                snippet: item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, ''),
-                htmlSnippet: item.snippet,
-                source: SOURCE_NAME,
-                weight: WEIGHT || 0.5
-            };
-            if (thumbMap[item.title]) {
-                result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
-            }
+        if (thumbData.query?.pages) Object.values(thumbData.query.pages).forEach(p => { if (p.thumbnail) thumbMap[p.title] = p.thumbnail.source; });
+        return searchData.query.search.map(item => {
+            const result = { title: item.title, link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`, displayLink: new URL(baseUrl).hostname, snippet: item.snippet.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: item.snippet, source: SOURCE_NAME, weight: WEIGHT || 0.5 };
+            if (thumbMap[item.title]) result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
             return result;
         });
-    } catch (error) { console.error('Error fetching Vikidia results:', error); }
+    } catch (error) { console.error('Error Vikidia:', error); }
     return [];
 }
 
 async function fetchWikipediaResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) {
-        return [];
-    }
+    if (typeof CONFIG === 'undefined' || !CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) return [];
     const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.WIKIPEDIA_SEARCH_CONFIG;
     const apiUrl = API_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
     const baseUrl = BASE_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
-    const searchParams = { action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' };
-    const searchUrl = new URL(apiUrl);
-    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
-
     try {
-        const searchRes = await fetch(searchUrl.toString());
-        const searchData = await searchRes.json();
+        const searchUrl = new URL(apiUrl);
+        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+        const searchData = await (await fetch(searchUrl)).json();
         if (!searchData.query?.search?.length) return [];
-
-        const searchResults = searchData.query.search;
-        const titles = searchResults.map(item => item.title).join('|');
-
-        const thumbParams = { action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const titles = searchData.query.search.map(i => i.title).join('|');
         const thumbUrl = new URL(apiUrl);
-        Object.keys(thumbParams).forEach(key => thumbUrl.searchParams.append(key, thumbParams[key]));
-
-        const thumbRes = await fetch(thumbUrl.toString());
-        const thumbData = await thumbRes.json();
+        Object.entries({ action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => thumbUrl.searchParams.append(k, v));
+        const thumbData = await (await fetch(thumbUrl)).json();
         const thumbMap = {};
-        if (thumbData.query?.pages) {
-            Object.values(thumbData.query.pages).forEach(page => {
-                if (page.thumbnail) thumbMap[page.title] = page.thumbnail.source;
-            });
-        }
-
-        return searchResults.map(item => {
-            const result = {
-                title: item.title,
-                link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
-                displayLink: new URL(baseUrl).hostname,
-                snippet: item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, ''),
-                htmlSnippet: item.snippet,
-                source: SOURCE_NAME,
-                weight: WEIGHT || 0.5
-            };
-            if (thumbMap[item.title]) {
-                result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
-            }
+        if (thumbData.query?.pages) Object.values(thumbData.query.pages).forEach(p => { if (p.thumbnail) thumbMap[p.title] = p.thumbnail.source; });
+        return searchData.query.search.map(item => {
+            const result = { title: item.title, link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`, displayLink: new URL(baseUrl).hostname, snippet: item.snippet.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: item.snippet, source: SOURCE_NAME, weight: WEIGHT || 0.5 };
+            if (thumbMap[item.title]) result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
             return result;
         });
-    } catch (error) { console.error('Error fetching Wikipedia results:', error); }
+    } catch (error) { console.error('Error Wikipedia:', error); }
     return [];
 }
 
 async function fetchMeiliSearchResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) {
-        return [];
-    }
-    console.log(`[MeiliSearch] Démarrage de la recherche pour "${query}"`);
+    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) return [];
     const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
-
     try {
-        const searchUrl = `${API_URL}/indexes/${INDEX_NAME}/search`;
-
         const payload = {
             q: query,
             limit: 5,
@@ -373,181 +100,64 @@ async function fetchMeiliSearchResults(query, lang = 'fr') {
             highlightPreTag: '<span class="searchmatch">',
             highlightPostTag: '</span>',
             matchingStrategy: 'last',
-            showMatchesPosition: true
+            filter: `lang = ${lang}` // Utilisation du paramètre lang pour le filtre
         };
-
-        console.log(`[MeiliSearch] Envoi de la requête POST à : ${searchUrl}`);
-
-        const searchRes = await fetch(searchUrl, {
+        const res = await fetch(`${API_URL}/indexes/${INDEX_NAME}/search`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-
-        if (!searchRes.ok) {
-            throw new Error(`MeiliSearch request failed with status ${searchRes.status}`);
-        }
-
-        const searchData = await searchRes.json();
-        console.log('[MeiliSearch] Réponse brute reçue du serveur :', searchData);
-
-        if (!searchData.hits?.length) {
-            console.log('[MeiliSearch] Aucun "hit" trouvé dans la réponse de MeiliSearch.');
-            return [];
-        }
-
-        console.log(`[MeiliSearch] ${searchData.hits.length} résultat(s) brut(s) trouvé(s).`);
-
-        return searchData.hits.map(hit => {
-            const result = {
-                title: hit._formatted?.title || hit.title,
-                link: hit.url,
-                displayLink: new URL(hit.url).hostname
-            };
-
-            // On utilise `_formatted.content` qui est maintenant tronqué et surligné par MeiliSearch.
-            // On garde un fallback sur les autres champs par sécurité.
-            const formattedContent = hit._formatted?.content || hit._formatted?.excerpt || hit.content || '';
-
-            result.snippet = (formattedContent || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '');
-            result.htmlSnippet = formattedContent || '';
-
-            result.source = SOURCE_NAME;
-            result.weight = WEIGHT || 0.6;
-
-            if (hit.images && hit.images.length > 0 && hit.images[0].url) {
-                result.pagemap = { cse_thumbnail: [{ src: hit.images[0].url }] };
-            }
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!data.hits?.length) return [];
+        return data.hits.map(hit => {
+            const content = hit._formatted?.content || hit._formatted?.excerpt || hit.content || '';
+            const result = { title: hit._formatted?.title || hit.title, link: hit.url, displayLink: new URL(hit.url).hostname, snippet: content.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: content, source: SOURCE_NAME, weight: WEIGHT || 0.6 };
+            if (hit.images?.[0]?.url) result.pagemap = { cse_thumbnail: [{ src: hit.images[0].url }] };
             return result;
         });
-    } catch (error) {
-        console.error('Erreur lors de la récupération des résultats MeiliSearch :', error);
-    }
+    } catch (error) { console.error('Error MeiliSearch:', error); }
     return [];
 }
 
-async function fetchMeiliSearchImageResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) {
-        return [];
-    }
-
+async function fetchMeiliSearchImageResults(query) {
+    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) return [];
     const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
-
     try {
-        const searchUrl = `${API_URL}/indexes/${INDEX_NAME}/search`;
-        const payload = {
-            q: query,
-            limit: 10,
-            attributesToRetrieve: ['*', '_formatted'],
-            attributesToHighlight: ['title', 'content'],
-            attributesToCrop: ['content'],
-            cropLength: 30,
-            cropMarker: '...',
-            highlightPreTag: '<span class="searchmatch">',
-            highlightPostTag: '</span>',
-            matchingStrategy: 'last',
-            showMatchesPosition: true
-        };
-
-        const searchRes = await fetch(searchUrl, {
+        const res = await fetch(`${API_URL}/indexes/${INDEX_NAME}/search`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
+            headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q: query, limit: 10 })
         });
-
-        if (!searchRes.ok) return [];
-        const searchData = await searchRes.json();
-        if (!searchData.hits?.length) return [];
-
-        return searchData.hits
-            .filter(hit => hit.images && hit.images.length > 0)
-            .map(hit => {
-                const image = hit.images[0];
-                return {
-                    title: hit._formatted?.title || hit.title,
-                    link: image.url,
-                    displayLink: new URL(hit.url).hostname,
-                    source: SOURCE_NAME,
-                    weight: WEIGHT || 0.6,
-                    image: {
-                        contextLink: hit.url,
-                        thumbnailLink: image.url,
-                        width: image.width || 400,
-                        height: image.height || 300
-                    }
-                };
-            });
-    } catch (error) {
-        console.error('Erreur MeiliSearch images:', error);
-    }
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.hits || []).filter(h => h.images?.length > 0).map(h => {
+            const img = h.images[0];
+            return { title: h.title, link: img.url, displayLink: new URL(h.url).hostname, source: SOURCE_NAME, weight: WEIGHT || 0.6, image: { contextLink: h.url, thumbnailLink: img.url, width: img.width || 400, height: img.height || 300 } };
+        });
+    } catch (error) { console.error('Error MeiliSearch images:', error); }
     return [];
 }
 
 async function fetchWikimediaCommonsResults(query) {
-    if (typeof CONFIG === 'undefined' || !CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
-        return [];
-    }
+    if (typeof CONFIG === 'undefined' || !CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) return [];
     const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.COMMONS_IMAGE_SEARCH_CONFIG;
-
-    const excludedCategories = [
-        "Nudity in art", "Erotic art", "Sexual activity", "Violence", "Deaths", "Human corpses"
-    ];
-    const exclusionQuery = excludedCategories.map(cat => `-incategory:"${cat}"`).join(' ');
-    const finalQuery = `${query} ${exclusionQuery}`;
-
-    const searchParams = {
-        action: 'query',
-        format: 'json',
-        list: 'search',
-        srsearch: finalQuery,
-        srnamespace: 6,
-        srlimit: 10,
-        srwhat: 'text',
-        origin: '*'
-    };
-    const searchUrl = new URL(API_URL);
-    Object.keys(searchParams).forEach(key => searchUrl.searchParams.append(key, searchParams[key]));
-
+    const finalQuery = `${query} ${["Nudity in art", "Erotic art", "Sexual activity", "Violence", "Deaths", "Human corpses"].map(c => `-incategory:"${c}"`).join(' ')}`;
     try {
-        const searchRes = await fetch(searchUrl.toString());
-        const searchData = await searchRes.json();
+        const searchUrl = new URL(API_URL);
+        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: finalQuery, srnamespace: 6, srlimit: 10, srwhat: 'text', origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+        const searchData = await (await fetch(searchUrl)).json();
         if (!searchData.query?.search?.length) return [];
-
-        const titles = searchData.query.search.map(item => item.title).join('|');
-        const infoParams = { action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|size|extmetadata', iiurlwidth: THUMBNAIL_SIZE, titles: titles, origin: '*' };
+        const titles = searchData.query.search.map(i => i.title).join('|');
         const infoUrl = new URL(API_URL);
-        Object.keys(infoParams).forEach(key => infoUrl.searchParams.append(key, infoParams[key]));
-
-        const infoRes = await fetch(infoUrl.toString());
-        const infoData = await infoRes.json();
+        Object.entries({ action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|size|extmetadata', iiurlwidth: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => infoUrl.searchParams.append(k, v));
+        const infoData = await (await fetch(infoUrl)).json();
         if (!infoData.query?.pages) return [];
-
-        return Object.values(infoData.query.pages).map(page => {
-            if (!page.imageinfo?.[0]) return null;
-            const img = page.imageinfo[0];
-            const title = page.title.replace('File:', '').replace(/\.[^/.]+$/, "");
-
-            return {
-                title: title,
-                link: img.url,
-                displayLink: new URL(BASE_URL).hostname,
-                source: SOURCE_NAME,
-                weight: WEIGHT || 0.7,
-                image: {
-                    contextLink: img.descriptionurl,
-                    thumbnailLink: img.thumburl,
-                    width: img.thumbwidth,
-                    height: img.thumbheight
-                }
-            };
-        }).filter(item => item !== null);
-    } catch (error) { console.error('Error fetching Wikimedia Commons results:', error); }
+        return Object.values(infoData.query.pages).filter(p => p.imageinfo?.[0]).map(p => {
+            const img = p.imageinfo[0];
+            return { title: p.title.replace('File:', '').replace(/\.[^/.]+$/, ""), link: img.url, displayLink: new URL(BASE_URL).hostname, source: SOURCE_NAME, weight: WEIGHT || 0.7, image: { contextLink: img.descriptionurl, thumbnailLink: img.thumburl, width: img.thumbwidth, height: img.thumbheight } };
+        });
+    } catch (error) { console.error('Error Commons:', error); }
     return [];
 }
 
@@ -555,116 +165,30 @@ function calculateLexicalScore(item, query) {
     const title = (item.title || '').toLowerCase();
     const snippet = (item.snippet || '').toLowerCase();
     const lowerQuery = query.toLowerCase().trim();
-
     if (!lowerQuery) return 0;
-
     const queryWords = lowerQuery.split(/[\s,.:;!?]+/).filter(w => w.length > 1);
-
     let score = 0;
-
-    if (title.includes(lowerQuery)) {
-        score += 1.0;
-    }
-    else if (queryWords.length > 1 && queryWords.every(word => title.includes(word))) {
-        score += 0.5;
-    }
-
-    if (title.startsWith(lowerQuery)) {
-        score += 0.4;
-    }
-
-    if (snippet && queryWords.length > 1 && queryWords.every(word => snippet.includes(word))) {
-        score += 0.2;
-    }
-
+    if (title.includes(lowerQuery)) score += 1.0;
+    else if (queryWords.length > 1 && queryWords.every(w => title.includes(w))) score += 0.5;
+    if (title.startsWith(lowerQuery)) score += 0.4;
+    if (snippet && queryWords.length > 1 && queryWords.every(w => snippet.includes(w))) score += 0.2;
     return score;
 }
 
 function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, meiliResults, query) {
-    console.log(`[Merge] Fusion des résultats pour "${query}":`);
-    console.log(`  - Google: ${googleResults.length} résultat(s)`);
-    console.log(`  - Vikidia: ${vikidiaResults.length} résultat(s)`);
-    console.log(`  - Wikipedia: ${wikipediaResults.length} résultat(s)`);
-    console.log(`  - MeiliSearch: ${meiliResults.length} résultat(s)`);
-
-    let allResults = [];
-    const googleWeight = 1.0;
-
-    allResults = allResults.concat(googleResults.map((item, index) => {
-        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        return { ...item, source: item.source || 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
-    }));
-
-    vikidiaResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / vikidiaResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
-    wikipediaResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / wikipediaResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
-    meiliResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / meiliResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
+    let allResults = googleResults.map((item, idx) => ({ ...item, source: item.source || 'Google', originalIndex: idx, calculatedWeight: 1.0 * (1 - idx / googleResults.length / 2) + calculateLexicalScore(item, query) }));
+    [vikidiaResults, wikipediaResults, meiliResults].forEach(results => results.forEach((item, idx) => allResults.push({ ...item, originalIndex: idx, calculatedWeight: item.weight * (1 - idx / results.length / 2) + calculateLexicalScore(item, query) })));
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
-    console.log('[Merge] Résultats triés avant dédoublonnage:', allResults.map(r => ({link: r.link, source: r.source, weight: r.calculatedWeight})));
-
-    const uniqueResults = [];
-    const seenLinks = new Set();
-    const nonGoogleSources = ['Vikidia', 'Wikipedia', CONFIG.MEILISEARCH_CONFIG?.SOURCE_NAME].filter(Boolean);
-
-    for (const result of allResults) {
-        if (!seenLinks.has(result.link) || (seenLinks.has(result.link) && nonGoogleSources.includes(result.source))) {
-            uniqueResults.push(result);
-            seenLinks.add(result.link);
-        }
-    }
-    const finalResults = uniqueResults.reverse().filter((v, i, a) => a.findIndex(t => t.link === v.link) === i).reverse();
-    console.log('[Merge] Résultats finaux après dédoublonnage:', finalResults.map(r => ({link: r.link, source: r.source})));
-    return finalResults;
+    const seen = new Set();
+    return allResults.filter(r => !seen.has(r.link) && seen.add(r.link));
 }
 
 function mergeAndWeightImageResults(googleResults, commonsResults, meiliResults, query) {
-    let allResults = [];
-    const googleWeight = 1.0;
-
-    allResults = allResults.concat(googleResults.map((item, index) => {
-        const baseWeight = googleWeight * (1 - (index / googleResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        return { ...item, source: 'Google', originalIndex: index, calculatedWeight: baseWeight + lexicalScore };
-    }));
-
-    commonsResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / commonsResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
-    meiliResults.forEach((item, index) => {
-        const baseWeight = item.weight * (1 - (index / meiliResults.length / 2));
-        const lexicalScore = calculateLexicalScore(item, query);
-        allResults.push({ ...item, source: item.source, originalIndex: index, calculatedWeight: baseWeight + lexicalScore });
-    });
-
+    let allResults = googleResults.map((item, idx) => ({ ...item, source: 'Google', originalIndex: idx, calculatedWeight: 1.0 * (1 - idx / googleResults.length / 2) + calculateLexicalScore(item, query) }));
+    [commonsResults, meiliResults].forEach(results => results.forEach((item, idx) => allResults.push({ ...item, originalIndex: idx, calculatedWeight: item.weight * (1 - idx / results.length / 2) + calculateLexicalScore(item, query) })));
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
-
-    const uniqueResults = [];
-    const seenLinks = new Set();
-    for (const result of allResults) {
-        if (!seenLinks.has(result.link)) {
-            uniqueResults.push(result);
-            seenLinks.add(result.link);
-        }
-    }
-    return uniqueResults;
+    const seen = new Set();
+    return allResults.filter(r => !seen.has(r.link) && seen.add(r.link));
 }
 
 function getWebConfigSignature() {
@@ -684,13 +208,8 @@ function getImageConfigSignature() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const RESULTS_PER_PAGE = 10;
-    let currentSearchType = 'web';
-    let currentQuery = '';
-    let currentSort = '';
-    let currentPage = 1;
-    const webCache = new WebSearchCache();
-    const imageCache = new ImageSearchCache();
-    const quotaManager = new ApiQuotaManager();
+    let currentSearchType = 'web', currentQuery = '', currentSort = '', currentPage = 1;
+    const webCache = new WebSearchCache(), imageCache = new ImageSearchCache(), quotaManager = new ApiQuotaManager();
 
     const searchInput = document.getElementById('searchInput');
     const clearButton = document.getElementById('clearButton');
@@ -709,25 +228,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const toolsContainer = document.getElementById('toolsContainer');
     const toolsButton = document.getElementById('toolsButton');
 
-    if (!searchInput) { console.error('search.js: #searchInput introuvable dans le DOM'); return; }
+    if (!searchInput) { console.error('search.js: #searchInput introuvable'); return; }
 
-    let suggestions = [];
-    let selectedIndex = -1;
-    let inputDebounceTimer = null;
-    let currentSuggestionsLang = navigator.language.startsWith('en') ? 'en' : 'fr';
+    let suggestions = [], selectedIndex = -1, inputDebounceTimer = null, currentSuggestionsLang = navigator.language.startsWith('en') ? 'en' : 'fr';
 
     function loadSuggestions() {
         const lang = i18n.getLang();
         if (currentSuggestionsLang === lang && suggestions.length > 0) return;
         currentSuggestionsLang = lang;
-        const suggestionsFile = lang === 'en' ? 'suggestions-en.json' : 'suggestions.json';
-        fetch(suggestionsFile)
+        fetch(lang === 'en' ? 'suggestions-en.json' : 'suggestions.json')
             .then(r => r.json())
             .then(j => { suggestions = j.suggestions || []; })
-            .catch((err) => {
-                console.warn(`Impossible de charger ${suggestionsFile}, utilisation des suggestions de secours.`, err);
-                suggestions = lang === 'en' ? ["animals", "dinosaurs", "planets", "science", "history"] : ["animaux", "planètes", "dinosaures", "sciences", "histoire"];
-            });
+            .catch(() => { suggestions = lang === 'en' ? ["animals", "dinosaurs", "planets"] : ["animaux", "planètes", "dinosaures"]; });
     }
     loadSuggestions();
 
@@ -739,62 +251,41 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page > 1) newUrl.searchParams.set('p', page); else newUrl.searchParams.delete('p');
             if (sort) newUrl.searchParams.set('sort', sort); else newUrl.searchParams.delete('sort');
             window.history.pushState({}, '', newUrl);
-        } catch (e) { /* ignore */ }
+        } catch (e) {}
     }
 
     function detectQueryLanguage(query) {
-        const lowerQuery = query.toLowerCase();
-        if (/[àâçéèêëîïôûùüÿœæ]/i.test(lowerQuery) || /\b(le|la|les|un|une|des|de|du|et|ou|est|pour|que|qui)\b/i.test(lowerQuery)) return 'fr';
-        if (/\b(the|and|for|what|who|are|of|in|to|it|is)\b/i.test(lowerQuery)) return 'en';
+        const lq = query.toLowerCase();
+        if (/[àâçéèêëîïôûùüÿœæ]/i.test(lq) || /\b(le|la|les|un|une|des)\b/i.test(lq)) return 'fr';
+        if (/\b(the|and|for|what|who|are)\b/i.test(lq)) return 'en';
         return null;
     }
 
     function buildGoogleCseApiUrl(query, type, page, sort) {
-        const startIndex = (page - 1) * RESULTS_PER_PAGE + 1;
         const url = new URL('https://www.googleapis.com/customsearch/v1');
         let finalQuery = query;
-
         if (type === 'web') {
             let exclusions = ' -site:commons.wikimedia.org';
-            if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) {
-                exclusions += ' -site:vikidia.org';
-            }
-            if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) {
-                exclusions += ' -site:wikipedia.org';
-            }
+            if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) exclusions += ' -site:vikidia.org';
+            if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) exclusions += ' -site:wikipedia.org';
             if (CONFIG.MEILISEARCH_CONFIG?.ENABLED && CONFIG.MEILISEARCH_CONFIG.BASE_URLS) {
-                const urls = Array.isArray(CONFIG.MEILISEARCH_CONFIG.BASE_URLS)
-                    ? CONFIG.MEILISEARCH_CONFIG.BASE_URLS
-                    : [CONFIG.MEILISEARCH_CONFIG.BASE_URLS];
-                urls.forEach(url => {
-                    if (url) {
-                        const hostname = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0];
-                        exclusions += ` -site:${hostname}`;
-                    }
-                });
+                const urls = Array.isArray(CONFIG.MEILISEARCH_CONFIG.BASE_URLS) ? CONFIG.MEILISEARCH_CONFIG.BASE_URLS : [CONFIG.MEILISEARCH_CONFIG.BASE_URLS];
+                urls.forEach(u => { if (u) exclusions += ` -site:${u.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0]}`; });
             }
             finalQuery += exclusions;
-        } else if (type === 'images') {
-            if (CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
-                finalQuery += ' -site:wikimedia.org';
-            }
+        } else if (type === 'images' && CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
+            finalQuery += ' -site:wikimedia.org';
         }
-
         url.searchParams.set('q', finalQuery);
         url.searchParams.set('key', CONFIG.GOOGLE_API_KEY);
         url.searchParams.set('cx', CONFIG.GOOGLE_CSE_ID);
-        url.searchParams.set('start', String(startIndex));
+        url.searchParams.set('start', String((page - 1) * RESULTS_PER_PAGE + 1));
         url.searchParams.set('num', String(RESULTS_PER_PAGE));
         url.searchParams.set('safe', 'active');
         url.searchParams.set('filter', '1');
         if (sort) url.searchParams.set('sort', sort);
-
-        if (type === 'images') {
-            url.searchParams.set('searchType', 'image');
-        } else if (type === 'web') {
-            const lang = detectQueryLanguage(query);
-            if (lang) url.searchParams.set('lr', `lang_${lang}`);
-        }
+        if (type === 'images') url.searchParams.set('searchType', 'image');
+        else { const lang = detectQueryLanguage(query); if (lang) url.searchParams.set('lr', `lang_${lang}`); }
         return url.toString();
     }
 
@@ -806,9 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const q = searchInput.value.trim();
         if (!q) return;
         if (document.body.classList.contains('is-homepage')) {
-            let newUrl = `results.html?q=${encodeURIComponent(q)}`;
-            if (new URLSearchParams(window.location.search).has('dev')) newUrl += '&dev=1';
-            window.location.href = newUrl;
+            window.location.href = `results.html?q=${encodeURIComponent(q)}${new URLSearchParams(window.location.search).has('dev') ? '&dev=1' : ''}`;
             return;
         }
         if (document.body.classList.contains('is-resultspage')) {
@@ -836,9 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const configSignature = type === 'web' ? getWebConfigSignature() : getImageConfigSignature();
-        let cachedData = (type === 'web')
-            ? webCache.get(cleanedQuery, page, currentSort, configSignature)
-            : imageCache.get(cleanedQuery, page, configSignature);
+        let cachedData = type === 'web' ? webCache.get(cleanedQuery, page, currentSort, configSignature) : imageCache.get(cleanedQuery, page, configSignature);
 
         if (cachedData) {
             hideLoading();
@@ -854,43 +341,46 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 'web') {
                 const googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
                     .then(res => res.json())
-                    .catch(err => {
-                        console.warn("L'appel à l'API Google a échoué, mais on continue avec les autres sources.", err);
-                        return { items: [], searchInformation: {} };
-                    });
+                    .catch(err => { console.warn("Erreur API Google", err); return { items: [], searchInformation: {} }; });
 
-                const [googleResponse, vikidiaResults, wikipediaResults, meiliResults] = await Promise.all([
-                    googlePromise,
-                    fetchVikidiaResults(cleanedQuery, lang),
-                    fetchWikipediaResults(cleanedQuery, lang),
-                    fetchMeiliSearchResults(cleanedQuery, lang)
-                ]);
+                // Sources secondaires UNIQUEMENT en page 1
+                const [googleResponse, vikidiaResults, wikipediaResults, meiliResults] = page === 1
+                    ? await Promise.all([googlePromise, fetchVikidiaResults(cleanedQuery, lang), fetchWikipediaResults(cleanedQuery, lang), fetchMeiliSearchResults(cleanedQuery, lang)])
+                    : [await googlePromise, [], [], []];
 
-                if (googleResponse.error) {
-                    console.error("Erreur de l'API Google:", googleResponse.error.message);
-                }
+                if (googleResponse.error) console.error("Erreur Google:", googleResponse.error.message);
 
                 const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults, meiliResults, cleanedQuery);
-                combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
+                combinedData = {
+                    items: mergedResults,
+                    searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
+                    googleItemsCount: (googleResponse.items || []).length,
+                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE
+                };
                 webCache.set(cleanedQuery, page, combinedData, currentSort, configSignature);
             } else {
-                const [googleResponse, commonsResults, meiliResults] = await Promise.all([
-                    fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
-                        .then(res => res.json())
-                        .catch(err => {
-                            console.warn("L'appel à l'API Google Images a échoué, mais on continue.", err);
-                            return { items: [], searchInformation: {} };
-                        }),
-                    fetchWikimediaCommonsResults(cleanedQuery),
-                    fetchMeiliSearchImageResults(cleanedQuery, lang)
-                ]);
+                // Images : sources secondaires UNIQUEMENT en page 1
+                const [googleResponse, commonsResults, meiliResults] = page === 1
+                    ? await Promise.all([
+                        fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort)).then(res => res.json()).catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; }),
+                        fetchWikimediaCommonsResults(cleanedQuery),
+                        fetchMeiliSearchImageResults(cleanedQuery)
+                    ])
+                    : [
+                        await fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort)).then(res => res.json()).catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; }),
+                        [],
+                        []
+                    ];
 
-                if (googleResponse.error) {
-                    console.error("Erreur de l'API Google Images:", googleResponse.error.message);
-                }
+                if (googleResponse.error) console.error("Erreur Google Images:", googleResponse.error.message);
 
                 const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults, meiliResults, cleanedQuery);
-                combinedData = { items: mergedResults, searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() } };
+                combinedData = {
+                    items: mergedResults,
+                    searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
+                    googleItemsCount: (googleResponse.items || []).length,
+                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE
+                };
                 imageCache.set(cleanedQuery, page, combinedData, configSignature);
             }
 
@@ -900,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             displayResults(combinedData, type, cleanedQuery, page);
         } catch (err) {
             hideLoading();
-            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#d93025;"><p>Une erreur s'est produite.</p><p style="font-size:14px; color:#70757a;">${err.message || err}</p></div>`;
+            resultsContainer.innerHTML = `<div style="padding:2rem;text-align:center;color:#d93025;"><p>Une erreur s'est produite.</p><p style="font-size:14px;color:#70757a;">${err.message || err}</p></div>`;
             console.error('performSearch error', err);
         }
     }
@@ -913,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!data.items || data.items.length === 0) {
             const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${query}"`;
             const suggestionsMsg = i18n.get('noResultsSuggestions');
-            resultsContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:#70757a;"><p style="font-size:1.2em; margin-bottom:16px;">${noResultsMsg}</p><ul style="list-style:none; padding:0; font-size:0.9em; color:#5f6368;">${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
+            resultsContainer.innerHTML = `<div style="padding:2rem;text-align:center;color:#70757a;"><p style="font-size:1.2em;margin-bottom:16px;">${noResultsMsg}</p><ul style="list-style:none;padding:0;font-size:0.9em;color:#5f6368;">${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
             createPagination(totalResults, page, data);
             return;
         }
