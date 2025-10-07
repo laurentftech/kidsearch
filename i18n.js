@@ -41,7 +41,8 @@ const translations = {
         knowledgePanelSource: "Source inconnue",
         knowledgePanelTitle: "Titre non disponible",
         knowledgePanelContent: "Contenu non disponible",
-        knowledgePanelReadMore: "En savoir plus sur"
+        knowledgePanelReadMore: "En savoir plus sur",
+        errorKidFriendly: "Oups, essaie encore ! 🎈"
     },
     en: {
         // Homepage
@@ -83,7 +84,8 @@ const translations = {
         knowledgePanelSource: "Unknown source",
         knowledgePanelTitle: "Title not available",
         knowledgePanelContent: "Content not available",
-        knowledgePanelReadMore: "Read more on"
+        knowledgePanelReadMore: "Read more on",
+        errorKidFriendly: "Oops, try again! 🎈"
     }
 };
 

@@ -29,14 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const startListening = () => {
         isRecognizing = true;
         voiceSearchButton.classList.add('recording');
-        voiceSearchButton.textContent = '🎧';
         searchInput.classList.add('listening');
     };
 
     const stopListening = () => {
         isRecognizing = false;
         voiceSearchButton.classList.remove('recording');
-        voiceSearchButton.textContent = '🎤';
         searchInput.classList.remove('listening');
     };
 
@@ -51,13 +49,21 @@ document.addEventListener('DOMContentLoaded', () => {
     recognition.onstart = startListening;
     recognition.onend = stopListening;
 
+    // Arrête la reconnaissance dès que l'utilisateur a fini de parler.
+    recognition.onspeechend = () => {
+        recognition.stop();
+    };
+
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript.trim();
         searchInput.value = transcript;
 
-        // Trigger de recherche
-        const searchFn = window.performSearch || window.doSearch || (() => {});
-        searchFn(transcript);
+        // Déclenche la recherche en soumettant le formulaire pour une intégration robuste.
+        if (searchInput.form) {
+            // Simule un événement de soumission pour déclencher les handlers existants.
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            searchInput.form.dispatchEvent(submitEvent);
+        }
     };
 
     recognition.onerror = (event) => {

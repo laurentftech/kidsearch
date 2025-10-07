@@ -390,7 +390,11 @@ document.addEventListener('DOMContentLoaded', () => {
             displayResults(combinedData, type, cleanedQuery, page);
         } catch (err) {
             hideLoading();
-            resultsContainer.innerHTML = `<div style="padding:2rem;text-align:center;color:#d93025;"><p>Une erreur s'est produite.</p><p style="font-size:14px;color:#70757a;">${err.message || err}</p></div>`;
+            const msg = i18n.get('errorKidFriendly');
+            resultsContainer.innerHTML = `
+        <div style="padding:2rem;text-align:center;color:#70757a;">
+            <p>${msg}</p>
+        </div>`;
             console.error('performSearch error', err);
         }
     }

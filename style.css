@@ -896,9 +896,18 @@ body {
     fill: currentColor;
 }
 
+.headphone-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: none; /* Cachée par défaut */
+}
+
 .clear-button {
     right: 3rem;
 }
+
+.recording .mic-icon { display: none; }
+.recording .headphone-icon { display: block; }
 
 #voiceSearchButton {
     right: 0.5rem;
