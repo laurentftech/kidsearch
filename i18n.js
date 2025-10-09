@@ -125,7 +125,7 @@ class I18nManager {
             if (attr) {
                 el.setAttribute(attr, this.get(key));
             } else {
-                el.innerHTML = this.get(key); // Utiliser innerHTML pour interpréter les balises
+                el.textContent = this.get(key); // Use textContent to avoid interpreting meta-characters as HTML
             }
         });
     }
