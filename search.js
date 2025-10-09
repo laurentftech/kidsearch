@@ -399,13 +399,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function escapeHTML(str) {
+        return String(str).replace(/[&<>"'`=\/]/g, function(s) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+                '`': '&#96;',
+                '=': '&#61;',
+                '/': '&#47;'
+            })[s];
+        });
+    }
+
     function displayResults(data, type, query, page) {
         statsEl.textContent = '';
         const totalResults = data.items?.length || 0;
         if (toolsContainer) toolsContainer.style.display = (type === 'web' && totalResults > 0) ? 'flex' : 'none';
 
         if (!data.items || data.items.length === 0) {
-            const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${query}"`;
+            const escapedQuery = escapeHTML(query);
+            const noResultsMsg = i18n.get(type === 'images' ? 'noImages' : 'noResults') + ` "${escapedQuery}"`;
             const suggestionsMsg = i18n.get('noResultsSuggestions');
             resultsContainer.innerHTML = `<div style="padding:2rem;text-align:center;color:#70757a;"><p style="font-size:1.2em;margin-bottom:16px;">${noResultsMsg}</p><ul style="list-style:none;padding:0;font-size:0.9em;color:#5f6368;">${suggestionsMsg.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
             createPagination(totalResults, page, data);
