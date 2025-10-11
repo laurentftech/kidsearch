@@ -111,7 +111,7 @@ class GenericApiSource {
                 case 'custom':
                     return await this.searchCustom(query, lang, options);
                 default:
-                    console.warn(`Type d'API non supporté: ${this.type}`);
+                    console.warn(`Type d\'API non supporté: ${this.type}`);
                     return [];
             }
         } catch (error) {
@@ -587,7 +587,7 @@ function initializeSearch() {
         const lang = i18n.getLang();
         if (currentSuggestionsLang === lang && suggestions.length > 0) return;
         currentSuggestionsLang = lang;
-        fetch(lang === 'en' ? 'suggestions-en.json' : 'suggestions.json')
+        fetch(lang === 'en' ? 'config/suggestions-en.json' : 'config/suggestions.json')
             .then(r => r.json())
             .then(j => { suggestions = j.suggestions || []; })
             .catch(() => { suggestions = lang === 'en' ? ["animals", "dinosaurs", "planets"] : ["animaux", "planètes", "dinosaures"]; });
@@ -1036,7 +1036,7 @@ if (window.apiConfigLoaded) {
     console.log("search.js: 🏁 Configuration API déjà prête. Initialisation immédiate.");
     initializeSearch();
 } else {
-    console.log("search.js: ⏳ Configuration API non prête. En attente de l'événement 'apiConfigLoaded'.");
+    console.log("search.js: ⏳ Configuration API non prête. En attente de l'événement \'apiConfigLoaded\'.");
     window.addEventListener('apiConfigLoaded', initializeSearch, { once: true });
 }
 ''

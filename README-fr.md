@@ -11,7 +11,7 @@ C'est une solution idéale pour une **famille, une association ou une école** q
 En l’utilisant combiné avec Google Family Link (ou tout autre système de liste blanche) sur Chrome, vous pouvez limiter l’accès à Internet aux seuls sites adaptés aux enfants que vous choisissez (et bloquer par exemple l’accès direct à google.com).
 
 <p align="center">
-  <img src="screenshot-fr.png" alt="Capture d'écran de KidSearch" width="500">
+  <img src="media/screenshot-fr.png" alt="Capture d'écran de KidSearch" width="500">
 </p>
 
 ## Fonctionnalités

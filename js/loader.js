@@ -1,28 +1,27 @@
-// loader.js - Version mise à jour
 // 1. Charge config.js ou config.demo.js (synchrone)
 // 2. Charge config-api-sources.json (asynchrone)
 
 (function() {
     'use strict';
 
-    // ========== PARTIE 1 : Chargement de config.js (ORIGINAL) ==========
+    // ========== PARTIE 1 : Chargement de config.js (ORIGINAL) ==========/
     // Utilise une requête synchrone pour s'assurer que la configuration est chargée
     // avant que les autres scripts ne s'exécutent.
     const xhr = new XMLHttpRequest();
-    xhr.open('HEAD', 'config.js', false); // false = synchrone
+    xhr.open('HEAD', 'config/config.js', false); // false = synchrone
 
     try {
         xhr.send();
         if (xhr.status === 200) {
             console.log(`✅ Using config.js for configuration.`);
-            document.write('<script src="config.js"><\/script>');
+            document.write('<script src="config/config.js"><\/script>');
         } else {
             console.log(`⚠️ Warning: config.js not found. Using config.demo.js for configuration.`);
-            document.write('<script src="config.demo.js"><\/script>');
+            document.write('<script src="config/config.demo.js"><\/script>');
         }
     } catch (e) {
         console.warn("Erreur réseau ou exécution en local (file://). Chargement de config.demo.js.");
-        document.write('<script src="config.demo.js"><\/script>');
+        document.write('<script src="config/config.demo.js"><\/script>');
     }
 
     // ========== PARTIE 2 : Chargement de config-api-sources.json (NOUVEAU) ==========
@@ -47,11 +46,11 @@
             }
 
             // Tente de charger config-api-sources.json, sinon config-api-sources-example.json
-            let configUrl = 'config-api-sources.json';
+            let configUrl = 'config/config-api-sources.json';
             let response = await fetch(configUrl);
             if (!response.ok) {
-                console.warn(`⚠️ ${configUrl} introuvable (status: ${response.status}). Tentative avec le fichier d'exemple.`);
-                configUrl = 'config-api-sources-example.json';
+                console.warn(`⚠️ ${configUrl} introuvable (status: ${response.status}). Tentative avec le fichier d\'exemple.`);
+                configUrl = 'config/config-api-sources-example.json';
                 response = await fetch(configUrl);
             }
 
@@ -73,12 +72,12 @@
                 console.log(`🔌 Sources actives (${activeSources.length}/${window.CONFIG.API_SOURCES.length}) : ${activeSources.map(s => s.name).join(', ')}`);
             }
 
-            console.log("loader.js: 🚀 Dispatch de l'événement 'apiConfigLoaded'.");
+            console.log("loader.js: 🚀 Dispatch de l\'événement \'apiConfigLoaded\'.");
             // Dispatch un événement personnalisé pour signaler que la config est prête
             window.dispatchEvent(new CustomEvent('apiConfigLoaded', {
                 detail: { sources: window.CONFIG.API_SOURCES }
             }));
-            window.apiConfigLoaded = true; // Ajout d'un drapeau global
+            window.apiConfigLoaded = true; // Ajout d\'un drapeau global
 
             return true;
         } catch (error) {
@@ -224,12 +223,12 @@
                 console.warn(`⚠️ Configuration migrée depuis ancien format (${window.CONFIG.API_SOURCES.length} sources)`);
             }
 
-            console.log("loader.js: 🚀 Dispatch de l'événement 'apiConfigLoaded' (depuis fallback).");
+            console.log("loader.js: 🚀 Dispatch de l\'événement \'apiConfigLoaded\' (depuis fallback).");
             // Dispatch l'événement même en cas d'erreur
             window.dispatchEvent(new CustomEvent('apiConfigLoaded', {
                 detail: { sources: window.CONFIG.API_SOURCES, fallback: true }
             }));
-            window.apiConfigLoaded = true; // Ajout d'un drapeau global même en cas d'erreur
+            window.apiConfigLoaded = true; // Ajout d\'un drapeau global même en cas d'erreur
 
             return false;
         }

@@ -1,7 +1,7 @@
 # Configuration avec secrets
-config.js
-config-api-sources.json
-config-api-sources-example.json
+config/config.js
+config/config-api-sources.json
+config/config-api-sources-example.json
 
 # Fichiers système
 .DS_Store

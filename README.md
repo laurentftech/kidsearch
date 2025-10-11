@@ -11,7 +11,7 @@ It's an ideal solution for a **family, an association, or a school** that wants 
 When combined with Google Family Link (or another whitelist system) on Chrome, you can restrict Internet access to child-friendly websites of your choice (and block direct access to google.com, for example).
 
 <p align="center">
-  <img src="screenshot.png" alt="KidSearch Screenshot" width="500">
+  <img src="media/screenshot.png" alt="KidSearch Screenshot" width="500">
 </p>
 
 ## Features
