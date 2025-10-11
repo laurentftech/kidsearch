@@ -6,14 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="style.css?v=3">
-    <script src="loader.js?v=2"></script>
-    <script src="i18n.js?v=2"></script>
+
+    <!-- 1️⃣ Charge config.js/config.demo.js + config-api-sources.json -->
+    <script src="loader.js?v=4"></script>
+
+    <!-- 2️⃣ Internationalisation -->
+    <script src="i18n.js?v=3"></script>
+
+    <!-- 3️⃣ DOMPurify pour la sécurité -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.7/purify.min.js"
             integrity="sha256-QM/0krVDU6Vc35/7NpeGU5/7fVTSX5fdSh6JdbMJw10="
             crossorigin="anonymous"></script>
-    <script src="search.js?v=2"></script>
+
+    <!-- 4️⃣ Moteur de recherche -->
+    <script src="search.js?v=5"></script>
     <script src="voice-search.js?v=3"></script>
-    <script src="knowledge-panels.js?v=2"></script>
+    <script src="knowledge-panels.js?v=3"></script>
 </head>
 <body>
 <div class="search-container">
@@ -75,7 +83,7 @@
 
 <!-- Footer avec signature -->
 <div class="footer">
-    <div id="footerText" data-i18n="footerText">Créé avec ❤️ par <a href="https://laurentftech.github.io" target="_blank" rel="noopener">Laurent F.</a></div>
+    <div id="footerText" data-i18n="footerText"><!-- Le texte sera injecté par JavaScript --></div>
 </div>
 </body>
 </html>

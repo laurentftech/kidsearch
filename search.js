@@ -1,165 +1,501 @@
-// search.js — version complète avec pagination optimisée
-// Sources secondaires (Vikidia, Wikipedia, MeiliSearch, Commons) uniquement en page 1
+// Toutes les données sont stockées en mémoire uniquement
 
 class WebSearchCache {
-    constructor() { this.cache = new Map(); this.maxCacheSize = 200; this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; this.loadFromStorage(); }
-    createKey(query, page, sort = '', configSignature = 'default') { return `web:${query.toLowerCase().trim()}:${page}:${sort}:${configSignature}`; }
-    saveToStorage() { try { localStorage.setItem('web_search_cache', JSON.stringify([...this.cache])); } catch (e) {} }
-    loadFromStorage() { try { const stored = localStorage.getItem('web_search_cache'); if (stored) { this.cache = new Map(JSON.parse(stored)); this.cleanExpiredEntries(); } } catch (e) { this.cache = new Map(); } }
-    cleanExpiredEntries() { const now = Date.now(); for (const [key, value] of this.cache) { if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key); } }
-    get(query, page, sort = '', configSignature) { const entry = this.cache.get(this.createKey(query, page, sort, configSignature)); if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null; return entry.data; }
-    set(query, page, data, sort = '', configSignature) { if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value); this.cache.set(this.createKey(query, page, sort, configSignature), { data, timestamp: Date.now() }); this.saveToStorage(); }
+    constructor() {
+        this.cache = new Map();
+        this.maxCacheSize = 200;
+        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
+    }
+    createKey(query, page, sort = '', configSignature = 'default') {
+        return `web:${query.toLowerCase().trim()}:${page}:${sort}:${configSignature}`;
+    }
+    cleanExpiredEntries() {
+        const now = Date.now();
+        for (const [key, value] of this.cache) {
+            if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key);
+        }
+    }
+    get(query, page, sort = '', configSignature) {
+        this.cleanExpiredEntries();
+        const entry = this.cache.get(this.createKey(query, page, sort, configSignature));
+        if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null;
+        return entry.data;
+    }
+    set(query, page, data, sort = '', configSignature) {
+        if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value);
+        this.cache.set(this.createKey(query, page, sort, configSignature), { data, timestamp: Date.now() });
+    }
     getStats() { return { size: this.cache.size, maxSize: this.maxCacheSize }; }
-    clear() { this.cache.clear(); localStorage.removeItem('web_search_cache'); }
+    clear() { this.cache.clear(); }
 }
 
 class ImageSearchCache {
-    constructor() { this.cache = new Map(); this.maxCacheSize = 100; this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; this.enabled = true; if (this.enabled) this.loadFromStorage(); }
-    createKey(query, page, configSignature = 'default') { return `images:${query.toLowerCase().trim()}:${page}:${configSignature}`; }
-    saveToStorage() { if (!this.enabled) return; try { localStorage.setItem('image_search_cache', JSON.stringify([...this.cache])); } catch (e) {} }
-    loadFromStorage() { if (!this.enabled) return; try { const stored = localStorage.getItem('image_search_cache'); if (stored) { this.cache = new Map(JSON.parse(stored)); this.cleanExpiredEntries(); } } catch (e) { this.cache = new Map(); } }
-    cleanExpiredEntries() { if (!this.enabled) return; const now = Date.now(); for (const [key, value] of this.cache) { if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key); } }
-    get(query, page, configSignature) { if (!this.enabled) return null; const entry = this.cache.get(this.createKey(query, page, configSignature)); if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null; return entry.data; }
-    set(query, page, data, configSignature) { if (!this.enabled) return; if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value); this.cache.set(this.createKey(query, page, configSignature), { data, timestamp: Date.now() }); this.saveToStorage(); }
+    constructor() {
+        this.cache = new Map();
+        this.maxCacheSize = 100;
+        this.cacheExpiry = 7 * 24 * 60 * 60 * 1000;
+        this.enabled = true;
+    }
+    createKey(query, page, configSignature = 'default') {
+        return `images:${query.toLowerCase().trim()}:${page}:${configSignature}`;
+    }
+    cleanExpiredEntries() {
+        if (!this.enabled) return;
+        const now = Date.now();
+        for (const [key, value] of this.cache) {
+            if (now - value.timestamp > this.cacheExpiry) this.cache.delete(key);
+        }
+    }
+    get(query, page, configSignature) {
+        if (!this.enabled) return null;
+        this.cleanExpiredEntries();
+        const entry = this.cache.get(this.createKey(query, page, configSignature));
+        if (!entry || Date.now() - entry.timestamp > this.cacheExpiry) return null;
+        return entry.data;
+    }
+    set(query, page, data, configSignature) {
+        if (!this.enabled) return;
+        if (this.cache.size >= this.maxCacheSize) this.cache.delete(this.cache.keys().next().value);
+        this.cache.set(this.createKey(query, page, configSignature), { data, timestamp: Date.now() });
+    }
     getStats() { return { size: this.enabled ? this.cache.size : 0, maxSize: this.maxCacheSize, enabled: this.enabled }; }
-    clear() { this.cache.clear(); localStorage.removeItem('image_search_cache'); }
-    enable() { this.enabled = true; this.loadFromStorage(); }
+    clear() { this.cache.clear(); }
+    enable() { this.enabled = true; }
     disable() { this.enabled = false; this.clear(); }
 }
 
 class ApiQuotaManager {
-    constructor() { this.dailyLimit = 90; this.loadUsage(); }
-    loadUsage() { const stored = localStorage.getItem('api_usage'); if (stored) { const data = JSON.parse(stored); const today = new Date().toDateString(); this.todayUsage = data.date === today ? data.count : 0; if (data.date !== today) this.saveUsage(); } else { this.todayUsage = 0; } }
-    saveUsage() { localStorage.setItem('api_usage', JSON.stringify({ date: new Date().toDateString(), count: this.todayUsage })); }
-    recordRequest() { this.todayUsage++; this.saveUsage(); }
-    getUsage() { return { used: this.todayUsage, limit: this.dailyLimit, remaining: this.dailyLimit - this.todayUsage }; }
+    constructor() {
+        this.dailyLimit = 90;
+        this.todayUsage = 0;
+        this.lastResetDate = new Date().toDateString();
+    }
+    checkReset() {
+        const today = new Date().toDateString();
+        if (this.lastResetDate !== today) {
+            this.todayUsage = 0;
+            this.lastResetDate = today;
+        }
+    }
+    recordRequest() {
+        this.checkReset();
+        this.todayUsage++;
+    }
+    getUsage() {
+        this.checkReset();
+        return { used: this.todayUsage, limit: this.dailyLimit, remaining: this.dailyLimit - this.todayUsage };
+    }
 }
 
-async function fetchVikidiaResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) return [];
-    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.VIKIDIA_SEARCH_CONFIG;
-    const apiUrl = API_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
-    const baseUrl = BASE_URL.replace('fr.vikidia.org', `${lang}.vikidia.org`);
-    try {
+// ==================== SYSTÈME GÉNÉRIQUE D'API ====================
+
+class GenericApiSource {
+    constructor(config) {
+        this.id = config.id;
+        this.name = config.name;
+        this.type = config.type;
+        this.enabled = config.enabled !== false;
+        this.weight = config.weight || 0.5;
+        this.config = config;
+    }
+
+    async search(query, lang = 'fr', options = {}) {
+        if (!this.enabled || this.config.supportsWeb === false) return [];
+
+        try {
+            switch (this.type) {
+                case 'mediawiki':
+                    return await this.searchMediaWiki(query, lang, options);
+                case 'meilisearch':
+                    return await this.searchMeiliSearch(query, lang, options);
+                case 'custom':
+                    return await this.searchCustom(query, lang, options);
+                default:
+                    console.warn(`Type d'API non supporté: ${this.type}`);
+                    return [];
+            }
+        } catch (error) {
+            console.error(`Erreur ${this.name}:`, error);
+            return [];
+        }
+    }
+
+    async searchMediaWiki(query, lang, options) {
+        const apiUrl = this.config.apiUrl.replace('{lang}', lang);
+        const baseUrl = this.config.baseUrl.replace('{lang}', lang);
+        const limit = options.limit || this.config.resultsLimit || 5;
+
         const searchUrl = new URL(apiUrl);
-        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+        const searchParams = {
+            action: 'query',
+            format: 'json',
+            list: 'search',
+            srsearch: query,
+            srprop: 'snippet|titlesnippet',
+            srlimit: limit,
+            origin: '*',
+            ...this.config.searchParams
+        };
+        Object.entries(searchParams).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+
         const searchData = await (await fetch(searchUrl)).json();
         if (!searchData.query?.search?.length) return [];
-        const titles = searchData.query.search.map(i => i.title).join('|');
-        const thumbUrl = new URL(apiUrl);
-        Object.entries({ action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => thumbUrl.searchParams.append(k, v));
-        const thumbData = await (await fetch(thumbUrl)).json();
-        const thumbMap = {};
-        if (thumbData.query?.pages) Object.values(thumbData.query.pages).forEach(p => { if (p.thumbnail) thumbMap[p.title] = p.thumbnail.source; });
+
+        let thumbMap = {};
+        if (this.config.fetchThumbnails) {
+            const titles = searchData.query.search.map(i => i.title).join('|');
+            const thumbUrl = new URL(apiUrl);
+            const thumbParams = {
+                action: 'query',
+                format: 'json',
+                prop: 'pageimages',
+                piprop: 'thumbnail',
+                pithumbsize: this.config.thumbnailSize || 200,
+                titles,
+                origin: '*'
+            };
+            Object.entries(thumbParams).forEach(([k, v]) => thumbUrl.searchParams.append(k, v));
+
+            const thumbData = await (await fetch(thumbUrl)).json();
+            if (thumbData.query?.pages) {
+                Object.values(thumbData.query.pages).forEach(p => {
+                    if (p.thumbnail) thumbMap[p.title] = p.thumbnail.source;
+                });
+            }
+        }
+
         return searchData.query.search.map(item => {
-            const result = { title: item.title, link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`, displayLink: new URL(baseUrl).hostname, snippet: item.snippet.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: item.snippet, source: SOURCE_NAME, weight: WEIGHT || 0.5 };
-            if (thumbMap[item.title]) result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
+            const urlPath = this.config.articlePath || '/wiki/';
+            const articleUrl = `${baseUrl}${urlPath}${encodeURIComponent(item.title.replace(/ /g, '_'))}`;
+
+            const result = {
+                title: item.title,
+                link: articleUrl,
+                displayLink: new URL(baseUrl).hostname,
+                snippet: item.snippet.replace(/<\/?span[^>]*>/g, ''),
+                htmlSnippet: item.snippet,
+                source: this.name,
+                weight: this.weight
+            };
+
+            if (thumbMap[item.title]) {
+                result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
+            }
+
             return result;
         });
-    } catch (error) { console.error('Error Vikidia:', error); }
-    return [];
-}
+    }
 
-async function fetchWikipediaResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) return [];
-    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.WIKIPEDIA_SEARCH_CONFIG;
-    const apiUrl = API_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
-    const baseUrl = BASE_URL.replace('fr.wikipedia.org', `${lang}.wikipedia.org`);
-    try {
-        const searchUrl = new URL(apiUrl);
-        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: query, srprop: 'snippet|titlesnippet', srlimit: 5, origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
-        const searchData = await (await fetch(searchUrl)).json();
-        if (!searchData.query?.search?.length) return [];
-        const titles = searchData.query.search.map(i => i.title).join('|');
-        const thumbUrl = new URL(apiUrl);
-        Object.entries({ action: 'query', format: 'json', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => thumbUrl.searchParams.append(k, v));
-        const thumbData = await (await fetch(thumbUrl)).json();
-        const thumbMap = {};
-        if (thumbData.query?.pages) Object.values(thumbData.query.pages).forEach(p => { if (p.thumbnail) thumbMap[p.title] = p.thumbnail.source; });
-        return searchData.query.search.map(item => {
-            const result = { title: item.title, link: `${baseUrl}${encodeURIComponent(item.title.replace(/ /g, '_'))}`, displayLink: new URL(baseUrl).hostname, snippet: item.snippet.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: item.snippet, source: SOURCE_NAME, weight: WEIGHT || 0.5 };
-            if (thumbMap[item.title]) result.pagemap = { cse_thumbnail: [{ src: thumbMap[item.title] }] };
-            return result;
-        });
-    } catch (error) { console.error('Error Wikipedia:', error); }
-    return [];
-}
+    async searchMeiliSearch(query, lang, options) {
+        const limit = options.limit || this.config.resultsLimit || 5;
 
-async function fetchMeiliSearchResults(query, lang = 'fr') {
-    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) return [];
-    const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
-    try {
         const payload = {
             q: query,
-            limit: 5,
-            attributesToRetrieve: ['*', '_formatted'],
-            attributesToHighlight: ['title', 'content'],
-            attributesToCrop: ['content'],
-            cropLength: 30,
+            limit,
+            attributesToRetrieve: this.config.attributesToRetrieve || ['*', '_formatted'],
+            attributesToHighlight: this.config.attributesToHighlight || ['title', 'content'],
+            attributesToCrop: this.config.attributesToCrop || ['content'],
+            cropLength: this.config.cropLength || 30,
             cropMarker: '...',
             highlightPreTag: '<span class="searchmatch">',
             highlightPostTag: '</span>',
-            matchingStrategy: 'last',
-            filter: `lang = ${lang}` // Utilisation du paramètre lang pour le filtre
+            matchingStrategy: this.config.matchingStrategy || 'last',
+            ...(this.config.filter && { filter: this.config.filter.replace('{lang}', lang) })
         };
-        const res = await fetch(`${API_URL}/indexes/${INDEX_NAME}/search`, {
+
+        const res = await fetch(`${this.config.apiUrl}/indexes/${this.config.indexName}/search`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+            headers: {
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
         });
+
         if (!res.ok) return [];
         const data = await res.json();
         if (!data.hits?.length) return [];
+
         return data.hits.map(hit => {
             const content = hit._formatted?.content || hit._formatted?.excerpt || hit.content || '';
-            const result = { title: hit._formatted?.title || hit.title, link: hit.url, displayLink: new URL(hit.url).hostname, snippet: content.replace(/<\/?span[^>]*>/g, ''), htmlSnippet: content, source: SOURCE_NAME, weight: WEIGHT || 0.6 };
-            if (hit.images?.[0]?.url) result.pagemap = { cse_thumbnail: [{ src: hit.images[0].url }] };
+            const result = {
+                title: hit._formatted?.title || hit.title,
+                link: hit.url,
+                displayLink: new URL(hit.url).hostname,
+                snippet: content.replace(/<\/?span[^>]*>/g, ''),
+                htmlSnippet: content,
+                source: this.name,
+                weight: this.weight
+            };
+
+            if (hit.images?.[0]?.url) {
+                result.pagemap = { cse_thumbnail: [{ src: hit.images[0].url }] };
+            }
+
             return result;
         });
-    } catch (error) { console.error('Error MeiliSearch:', error); }
-    return [];
-}
+    }
 
-async function fetchMeiliSearchImageResults(query) {
-    if (typeof CONFIG === 'undefined' || !CONFIG.MEILISEARCH_CONFIG?.ENABLED) return [];
-    const { API_URL, API_KEY, INDEX_NAME, SOURCE_NAME, WEIGHT } = CONFIG.MEILISEARCH_CONFIG;
-    try {
-        const res = await fetch(`${API_URL}/indexes/${INDEX_NAME}/search`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ q: query, limit: 10 })
-        });
+    async searchCustom(query, lang, options) {
+        const url = this.config.apiUrl
+            .replace('{query}', encodeURIComponent(query))
+            .replace('{lang}', lang)
+            .replace('{limit}', options.limit || this.config.resultsLimit || 5);
+
+        const requestOptions = {
+            method: this.config.method || 'GET',
+            headers: this.config.headers || {}
+        };
+
+        if (this.config.method === 'POST' && this.config.body) {
+            requestOptions.body = JSON.stringify(
+                this.config.body.replace('{query}', query).replace('{lang}', lang)
+            );
+        }
+
+        const res = await fetch(url, requestOptions);
         if (!res.ok) return [];
-        const data = await res.json();
-        return (data.hits || []).filter(h => h.images?.length > 0).map(h => {
-            const img = h.images[0];
-            return { title: h.title, link: img.url, displayLink: new URL(h.url).hostname, source: SOURCE_NAME, weight: WEIGHT || 0.6, image: { contextLink: h.url, thumbnailLink: img.url, width: img.width || 400, height: img.height || 300 } };
-        });
-    } catch (error) { console.error('Error MeiliSearch images:', error); }
-    return [];
-}
 
-async function fetchWikimediaCommonsResults(query) {
-    if (typeof CONFIG === 'undefined' || !CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) return [];
-    const { API_URL, BASE_URL, SOURCE_NAME, WEIGHT, THUMBNAIL_SIZE } = CONFIG.COMMONS_IMAGE_SEARCH_CONFIG;
-    const finalQuery = `${query} ${["Nudity in art", "Erotic art", "Sexual activity", "Violence", "Deaths", "Human corpses"].map(c => `-incategory:"${c}"`).join(' ')}`;
-    try {
-        const searchUrl = new URL(API_URL);
-        Object.entries({ action: 'query', format: 'json', list: 'search', srsearch: finalQuery, srnamespace: 6, srlimit: 10, srwhat: 'text', origin: '*' }).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+        const data = await res.json();
+
+        if (this.config.transformer && typeof this.config.transformer === 'function') {
+            return this.config.transformer(data, this.name, this.weight);
+        }
+
+        const items = this.config.resultsPath ?
+            this.config.resultsPath.split('.').reduce((obj, key) => obj?.[key], data) :
+            data;
+
+        if (!Array.isArray(items)) return [];
+
+        return items.map(item => ({
+            title: item[this.config.titleField || 'title'],
+            link: item[this.config.linkField || 'url'],
+            displayLink: new URL(item[this.config.linkField || 'url']).hostname,
+            snippet: item[this.config.snippetField || 'snippet'],
+            htmlSnippet: item[this.config.snippetField || 'snippet'],
+            source: this.name,
+            weight: this.weight
+        }));
+    }
+
+    async searchImages(query, options = {}) {
+        if (!this.enabled || !this.config.supportsImages) return [];
+
+        try {
+            if (this.type === 'mediawiki' && this.config.imageSearch) {
+                return await this.searchMediaWikiImages(query, options);
+            } else if (this.type === 'meilisearch' && this.config.imageSearch) {
+                return await this.searchMeiliSearchImages(query, options);
+            }
+            return [];
+        } catch (error) {
+            console.error(`Erreur recherche images ${this.name}:`, error);
+            return [];
+        }
+    }
+
+    async searchMediaWikiImages(query, options) {
+        const apiUrl = this.config.apiUrl.replace('{lang}', options.lang || 'fr');
+        const baseUrl = this.config.baseUrl.replace('{lang}', options.lang || 'fr');
+
+        let finalQuery = query;
+        if (this.config.imageSearch.excludeCategories) {
+            const exclusions = this.config.imageSearch.excludeCategories
+                .map(c => `-incategory:"${c}"`)
+                .join(' ');
+            finalQuery = `${query} ${exclusions}`;
+        }
+
+        const searchUrl = new URL(apiUrl);
+        const searchParams = {
+            action: 'query',
+            format: 'json',
+            list: 'search',
+            srsearch: finalQuery,
+            srnamespace: 6,
+            srlimit: options.limit || 10,
+            srwhat: 'text',
+            origin: '*'
+        };
+        Object.entries(searchParams).forEach(([k, v]) => searchUrl.searchParams.append(k, v));
+
         const searchData = await (await fetch(searchUrl)).json();
         if (!searchData.query?.search?.length) return [];
+
         const titles = searchData.query.search.map(i => i.title).join('|');
-        const infoUrl = new URL(API_URL);
-        Object.entries({ action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|size|extmetadata', iiurlwidth: THUMBNAIL_SIZE, titles, origin: '*' }).forEach(([k, v]) => infoUrl.searchParams.append(k, v));
+        const infoUrl = new URL(apiUrl);
+        const infoParams = {
+            action: 'query',
+            format: 'json',
+            prop: 'imageinfo',
+            iiprop: 'url|size|extmetadata',
+            iiurlwidth: this.config.thumbnailSize || 200,
+            titles,
+            origin: '*'
+        };
+        Object.entries(infoParams).forEach(([k, v]) => infoUrl.searchParams.append(k, v));
+
         const infoData = await (await fetch(infoUrl)).json();
         if (!infoData.query?.pages) return [];
-        return Object.values(infoData.query.pages).filter(p => p.imageinfo?.[0]).map(p => {
-            const img = p.imageinfo[0];
-            return { title: p.title.replace('File:', '').replace(/\.[^/.]+$/, ""), link: img.url, displayLink: new URL(BASE_URL).hostname, source: SOURCE_NAME, weight: WEIGHT || 0.7, image: { contextLink: img.descriptionurl, thumbnailLink: img.thumburl, width: img.thumbwidth, height: img.thumbheight } };
+
+        return Object.values(infoData.query.pages)
+            .filter(p => p.imageinfo?.[0])
+            .map(p => {
+                const img = p.imageinfo[0];
+                return {
+                    title: p.title.replace('File:', '').replace(/\.[^/.]+$/, ""),
+                    link: img.url,
+                    displayLink: new URL(baseUrl).hostname,
+                    source: this.name,
+                    weight: this.weight,
+                    image: {
+                        contextLink: img.descriptionurl,
+                        thumbnailLink: img.thumburl,
+                        width: img.thumbwidth,
+                        height: img.thumbheight
+                    }
+                };
+            });
+    }
+
+    async searchMeiliSearchImages(query, options) {
+        const res = await fetch(`${this.config.apiUrl}/indexes/${this.config.indexName}/search`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ q: query, limit: options.limit || 10 })
         });
-    } catch (error) { console.error('Error Commons:', error); }
-    return [];
+
+        if (!res.ok) return [];
+        const data = await res.json();
+
+        return (data.hits || [])
+            .filter(h => h.images?.length > 0)
+            .map(h => {
+                const img = h.images[0];
+                return {
+                    title: h.title,
+                    link: img.url,
+                    displayLink: new URL(h.url).hostname,
+                    source: this.name,
+                    weight: this.weight,
+                    image: {
+                        contextLink: h.url,
+                        thumbnailLink: img.url,
+                        width: img.width || 400,
+                        height: img.height || 300
+                    }
+                };
+            });
+    }
 }
+
+class ApiSourceManager {
+    constructor() {
+        this.sources = new Map();
+        console.log("search.js: 🏗️ ApiSourceManager: constructeur appelé.");
+        this.loadConfiguration();
+    }
+
+    loadConfiguration() {
+        if (typeof CONFIG !== 'undefined' && CONFIG.API_SOURCES) {
+            console.log(`search.js: ⚙️ ApiSourceManager: Chargement de ${CONFIG.API_SOURCES.length} source(s) depuis CONFIG.API_SOURCES.`);
+            this.loadFromConfig(CONFIG.API_SOURCES);
+            return;
+        }
+        console.log("search.js: ⚠️ ApiSourceManager: CONFIG.API_SOURCES non trouvé. Chargement de la configuration par défaut.");
+        this.loadDefaultConfiguration();
+    }
+
+    loadFromConfig(apiSourcesConfig) {
+        apiSourcesConfig.forEach(sourceConfig => {
+            const source = new GenericApiSource(sourceConfig);
+            this.sources.set(source.id, source);
+        });
+    }
+
+    loadDefaultConfiguration() {
+        const defaultSources = [
+            {
+                id: 'vikidia',
+                name: 'Vikidia',
+                type: 'mediawiki',
+                enabled: true,
+                weight: 0.5,
+                apiUrl: 'https://{lang}.vikidia.org/w/api.php',
+                baseUrl: 'https://{lang}.vikidia.org/wiki/',
+                fetchThumbnails: true,
+                thumbnailSize: 200,
+                resultsLimit: 5
+            },
+            {
+                id: 'wikipedia',
+                name: 'Wikipedia',
+                type: 'mediawiki',
+                enabled: true,
+                weight: 0.5,
+                apiUrl: 'https://{lang}.wikipedia.org/w/api.php',
+                baseUrl: 'https://{lang}.wikipedia.org/wiki/',
+                fetchThumbnails: true,
+                thumbnailSize: 200,
+                resultsLimit: 5
+            }
+        ];
+
+        defaultSources.forEach(config => {
+            const source = new GenericApiSource(config);
+            this.sources.set(source.id, source);
+        });
+    }
+
+    getSource(id) {
+        return this.sources.get(id);
+    }
+
+    getActiveSources() {
+        return Array.from(this.sources.values()).filter(s => s.enabled);
+    }
+
+    getActiveImageSources() {
+        return Array.from(this.sources.values())
+            .filter(s => s.enabled && s.config.supportsImages);
+    }
+
+    async searchAll(query, lang = 'fr', options = {}) {
+        const sources = this.getActiveSources();
+        const results = await Promise.all(
+            sources.map(source => source.search(query, lang, options))
+        );
+        return results.flat();
+    }
+
+    async searchAllImages(query, lang = 'fr', options = {}) {
+        const sources = this.getActiveImageSources();
+        const results = await Promise.all(
+            sources.map(source => source.searchImages(query, { ...options, lang }))
+        );
+        return results.flat();
+    }
+
+    getConfigSignature() {
+        return Array.from(this.sources.values())
+            .filter(s => s.enabled)
+            .map(s => `${s.id[0]}1`)
+            .join('-');
+    }
+
+    getImageConfigSignature() {
+        return Array.from(this.sources.values())
+            .filter(s => s.enabled && s.config.supportsImages)
+            .map(s => `${s.id[0]}1`)
+            .join('-');
+    }
+}
+
+// ==================== FONCTIONS UTILITAIRES ====================
 
 function calculateLexicalScore(item, query) {
     const title = (item.title || '').toLowerCase();
@@ -171,46 +507,55 @@ function calculateLexicalScore(item, query) {
     if (title.includes(lowerQuery)) score += 1.0;
     else if (queryWords.length > 1 && queryWords.every(w => title.includes(w))) score += 0.5;
     if (title.startsWith(lowerQuery)) score += 0.4;
-    if (snippet && queryWords.length > 1 && queryWords.every(w => snippet.includes(w))) score += 0.2;
+    if (snippet && queryWords.length > 1 && queryWords.every(w => snippet.includes(w))) score += 0.35;
     return score;
 }
 
-function mergeAndWeightResults(googleResults, vikidiaResults, wikipediaResults, meiliResults, query) {
-    let allResults = googleResults.map((item, idx) => ({ ...item, source: item.source || 'Google', originalIndex: idx, calculatedWeight: 1.0 * (1 - idx / googleResults.length / 2) + calculateLexicalScore(item, query) }));
-    [vikidiaResults, wikipediaResults, meiliResults].forEach(results => results.forEach((item, idx) => allResults.push({ ...item, originalIndex: idx, calculatedWeight: item.weight * (1 - idx / results.length / 2) + calculateLexicalScore(item, query) })));
+function mergeAndWeightResults(googleResults, secondaryResults, query, searchType = 'web') {
+    let allResults = googleResults.map((item, idx) => ({
+        ...item,
+        source: item.source || 'Google',
+        originalIndex: idx,
+        calculatedWeight: 1.0 * (1 - idx / googleResults.length / 2) + calculateLexicalScore(item, query)
+    }));
+
+    secondaryResults.forEach(results =>
+        results.forEach((item, idx) =>
+            allResults.push({
+                ...item,
+                originalIndex: idx,
+                calculatedWeight: item.weight * (1 - idx / results.length / 2) + calculateLexicalScore(item, query)
+            })
+        )
+    );
+
     allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
+
+    const normalizeUrl = (url) => {
+        if (!url) return null;
+        // Normalize by removing protocol, www, query params, and trailing slash
+        return url.replace(/^https?:\/\/(www\.)?/, '').split('?')[0].split('#')[0].replace(/\/$/, '');
+    };
+
     const seen = new Set();
-    return allResults.filter(r => !seen.has(r.link) && seen.add(r.link));
+    return allResults.filter(r => {
+        // For images, the context link is a more reliable deduplication key than the direct image link (which can be a CDN link).
+        const urlToNormalize = (searchType === 'images' && r.image?.contextLink) ? r.image.contextLink : r.link;
+        const normalized = normalizeUrl(urlToNormalize);
+
+        if (!normalized || seen.has(normalized)) {
+            return false;
+        }
+        seen.add(normalized);
+        return true;
+    });
 }
 
-function mergeAndWeightImageResults(googleResults, commonsResults, meiliResults, query) {
-    let allResults = googleResults.map((item, idx) => ({ ...item, source: 'Google', originalIndex: idx, calculatedWeight: 1.0 * (1 - idx / googleResults.length / 2) + calculateLexicalScore(item, query) }));
-    [commonsResults, meiliResults].forEach(results => results.forEach((item, idx) => allResults.push({ ...item, originalIndex: idx, calculatedWeight: item.weight * (1 - idx / results.length / 2) + calculateLexicalScore(item, query) })));
-    allResults.sort((a, b) => b.calculatedWeight - a.calculatedWeight || a.originalIndex - b.originalIndex);
-    const seen = new Set();
-    return allResults.filter(r => !seen.has(r.link) && seen.add(r.link));
-}
 
-function getWebConfigSignature() {
-    const parts = [];
-    if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) parts.push('v1');
-    if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) parts.push('w1');
-    if (CONFIG.MEILISEARCH_CONFIG?.ENABLED) parts.push('m1');
-    return parts.join('-');
-}
+// ==================== INITIALISATION ====================
 
-function getImageConfigSignature() {
-    const parts = [];
-    if (CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) parts.push('c1');
-    if (CONFIG.MEILISEARCH_CONFIG?.ENABLED) parts.push('m1');
-    return parts.join('-');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const RESULTS_PER_PAGE = 10;
-    let currentSearchType = 'web', currentQuery = '', currentSort = '', currentPage = 1;
-    const webCache = new WebSearchCache(), imageCache = new ImageSearchCache(), quotaManager = new ApiQuotaManager();
-
+function initializeSearch() {
+    console.log("search.js: ✨ Initialisation du moteur de recherche...");
     const searchInput = document.getElementById('searchInput');
     const clearButton = document.getElementById('clearButton');
     const autocompleteDropdown = document.getElementById('autocompleteDropdown');
@@ -227,6 +572,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagesTab = document.getElementById('imagesTab');
     const toolsContainer = document.getElementById('toolsContainer');
     const toolsButton = document.getElementById('toolsButton');
+
+    const RESULTS_PER_PAGE = 10;
+    let currentSearchType = 'web', currentQuery = '', currentSort = '', currentPage = 1;
+    const webCache = new WebSearchCache(), imageCache = new ImageSearchCache(), quotaManager = new ApiQuotaManager();
+    
+    const apiManager = new ApiSourceManager();
 
     if (!searchInput) { console.error('search.js: #searchInput introuvable'); return; }
 
@@ -264,18 +615,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildGoogleCseApiUrl(query, type, page, sort) {
         const url = new URL('https://www.googleapis.com/customsearch/v1');
         let finalQuery = query;
+
         if (type === 'web') {
-            let exclusions = ' -site:commons.wikimedia.org';
-            if (CONFIG.VIKIDIA_SEARCH_CONFIG?.ENABLED) exclusions += ' -site:vikidia.org';
-            if (CONFIG.WIKIPEDIA_SEARCH_CONFIG?.ENABLED) exclusions += ' -site:wikipedia.org';
-            if (CONFIG.MEILISEARCH_CONFIG?.ENABLED && CONFIG.MEILISEARCH_CONFIG.BASE_URLS) {
-                const urls = Array.isArray(CONFIG.MEILISEARCH_CONFIG.BASE_URLS) ? CONFIG.MEILISEARCH_CONFIG.BASE_URLS : [CONFIG.MEILISEARCH_CONFIG.BASE_URLS];
-                urls.forEach(u => { if (u) exclusions += ` -site:${u.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0]}`; });
-            }
-            finalQuery += exclusions;
-        } else if (type === 'images' && CONFIG.COMMONS_IMAGE_SEARCH_CONFIG?.ENABLED) {
-            finalQuery += ' -site:wikimedia.org';
+            const activeSources = apiManager.getActiveSources();
+            activeSources.forEach(source => {
+                if (source.config.excludeFromGoogle !== false) {
+                    const domains = source.config.excludeDomains || [new URL(source.config.baseUrl).hostname];
+                    domains.forEach(domain => {
+                        finalQuery += ` -site:${domain}`;
+                    });
+                }
+            });
+        } else if (type === 'images') {
+            const activeImageSources = apiManager.getActiveImageSources();
+            activeImageSources.forEach(source => {
+                if (source.config.excludeFromGoogle !== false) {
+                    const domains = source.config.excludeDomains || [new URL(source.config.baseUrl).hostname];
+                    domains.forEach(domain => {
+                        finalQuery += ` -site:${domain}`;
+                    });
+                }
+            });
         }
+
         url.searchParams.set('q', finalQuery);
         url.searchParams.set('key', CONFIG.GOOGLE_API_KEY);
         url.searchParams.set('cx', CONFIG.GOOGLE_CSE_ID);
@@ -324,7 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tryDisplayKnowledgePanel(cleanedQuery);
         }
 
-        const configSignature = type === 'web' ? getWebConfigSignature() : getImageConfigSignature();
+        const configSignature = type === 'web' ? apiManager.getConfigSignature() : apiManager.getImageConfigSignature();
         let cachedData = type === 'web' ? webCache.get(cleanedQuery, page, currentSort, configSignature) : imageCache.get(cleanedQuery, page, configSignature);
 
         if (cachedData) {
@@ -343,14 +705,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     .then(res => res.json())
                     .catch(err => { console.warn("Erreur API Google", err); return { items: [], searchInformation: {} }; });
 
-                // Sources secondaires UNIQUEMENT en page 1
-                const [googleResponse, vikidiaResults, wikipediaResults, meiliResults] = page === 1
-                    ? await Promise.all([googlePromise, fetchVikidiaResults(cleanedQuery, lang), fetchWikipediaResults(cleanedQuery, lang), fetchMeiliSearchResults(cleanedQuery, lang)])
-                    : [await googlePromise, [], [], []];
+                const secondaryResults = page === 1 ? await apiManager.searchAll(cleanedQuery, lang) : [];
+                const googleResponse = await googlePromise;
 
                 if (googleResponse.error) console.error("Erreur Google:", googleResponse.error.message);
 
-                const mergedResults = mergeAndWeightResults(googleResponse.items || [], vikidiaResults, wikipediaResults, meiliResults, cleanedQuery);
+                const mergedResults = mergeAndWeightResults(googleResponse.items || [], page === 1 ? [secondaryResults] : [], cleanedQuery, 'web');
                 combinedData = {
                     items: mergedResults,
                     searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
@@ -359,22 +719,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 webCache.set(cleanedQuery, page, combinedData, currentSort, configSignature);
             } else {
-                // Images : sources secondaires UNIQUEMENT en page 1
-                const [googleResponse, commonsResults, meiliResults] = page === 1
-                    ? await Promise.all([
-                        fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort)).then(res => res.json()).catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; }),
-                        fetchWikimediaCommonsResults(cleanedQuery),
-                        fetchMeiliSearchImageResults(cleanedQuery)
-                    ])
-                    : [
-                        await fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort)).then(res => res.json()).catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; }),
-                        [],
-                        []
-                    ];
+                const googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
+                    .then(res => res.json())
+                    .catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; });
+
+                const secondaryResults = page === 1 ? await apiManager.searchAllImages(cleanedQuery, lang) : [];
+                const googleResponse = await googlePromise;
 
                 if (googleResponse.error) console.error("Erreur Google Images:", googleResponse.error.message);
 
-                const mergedResults = mergeAndWeightImageResults(googleResponse.items || [], commonsResults, meiliResults, cleanedQuery);
+                const mergedResults = mergeAndWeightResults(googleResponse.items || [], page === 1 ? [secondaryResults] : [], cleanedQuery, 'images');
                 combinedData = {
                     items: mergedResults,
                     searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
@@ -673,4 +1027,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     updateQuotaDisplay();
-});
+}
+
+// Attend que la configuration des API soit chargée avant d'initialiser le moteur de recherche.
+// Cela évite une race condition où search.js s'exécute avant que loader.js n'ait fini
+// de charger config-api-sources.json.
+if (window.apiConfigLoaded) {
+    console.log("search.js: 🏁 Configuration API déjà prête. Initialisation immédiate.");
+    initializeSearch();
+} else {
+    console.log("search.js: ⏳ Configuration API non prête. En attente de l'événement 'apiConfigLoaded'.");
+    window.addEventListener('apiConfigLoaded', initializeSearch, { once: true });
+}
+''

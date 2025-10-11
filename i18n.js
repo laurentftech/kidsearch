@@ -4,7 +4,7 @@ const translations = {
     fr: {
         // Page d'accueil
         homeTitle: "Search for Kids",
-        homeDescription: "Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour tes exposés. Tape un mot ou une question et clique sur la loupe pour voir les résultats filtrés.",
+        homeDescription: "Utilise ce moteur de recherche pour trouver des informations adaptées aux enfants et pour tes exposés. Tape un mot ou une question et clique sur la loupe pour voir les résultats.",
         recommendedTitle: "📚 Sites recommandés pour tes recherches",
         footerText: "Créé avec ❤️ par <a href=\"https://laurentftech.github.io\" target=\"_blank\" rel=\"noopener\">Laurent F.</a>",
         sites: [
@@ -47,7 +47,7 @@ const translations = {
     en: {
         // Homepage
         homeTitle: "Search for Kids",
-        homeDescription: "Use this search engine to find child-friendly information for your research and school projects. Type a word or question and click the magnifying glass to see filtered results.",
+        homeDescription: "Use this search engine to find child-friendly information for your research and school projects. Type a word or question and click the magnifying glass to see the results.",
         recommendedTitle: "📚 Recommended sites for your research",
         footerText: "Created with ❤️ by <a href=\"https://laurentftech.github.io\" target=\"_blank\" rel=\"noopener\">Laurent F.</a>",
         sites: [
@@ -125,7 +125,12 @@ class I18nManager {
             if (attr) {
                 el.setAttribute(attr, this.get(key));
             } else {
-                el.textContent = this.get(key); // Use textContent to avoid interpreting meta-characters as HTML
+                // Use innerHTML for footerText to render the link, textContent for others for security
+                if (key === 'footerText') {
+                    el.innerHTML = this.get(key);
+                } else {
+                    el.textContent = this.get(key);
+                }
             }
         });
     }
@@ -146,9 +151,6 @@ class I18nManager {
                 siteCard.innerHTML = `<a href="${site.url}" target="_blank" rel="noopener"><div class="site-icon">${site.icon}</div><div class="site-title">${site.title}</div><div class="site-desc">${site.desc}</div></a>`;
                 sitesGridEl.appendChild(siteCard);
             });
-            // Mettre à jour le footer sur la page d'accueil
-            const footerTextEl = document.getElementById('footerText');
-            if (footerTextEl) footerTextEl.textContent = this.get('footerText');
         }
 
         // Page de résultats
