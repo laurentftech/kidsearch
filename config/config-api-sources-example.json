@@ -1,0 +1,195 @@
+{
+  "apiSources": [
+    {
+      "id": "vikidia",
+      "name": "Vikidia",
+      "type": "mediawiki",
+      "enabled": true,
+      "weight": 0.5,
+      "apiUrl": "https://{lang}.vikidia.org/w/api.php",
+      "baseUrl": "https://{lang}.vikidia.org",
+      "articlePath": "/wiki/",
+      "fetchThumbnails": true,
+      "thumbnailSize": 200,
+      "resultsLimit": 5,
+      "excludeFromGoogle": true,
+      "excludeDomains": ["vikidia.org"],
+      "searchParams": {},
+      "supportsImages": false,
+      "description": "Encyclopédie pour les 8-13 ans."
+    },
+    {
+      "id": "wikipedia",
+      "name": "Wikipedia",
+      "type": "mediawiki",
+      "enabled": true,
+      "weight": 0.5,
+      "apiUrl": "https://{lang}.wikipedia.org/w/api.php",
+      "baseUrl": "https://{lang}.wikipedia.org",
+      "articlePath": "/wiki/",
+      "fetchThumbnails": true,
+      "thumbnailSize": 200,
+      "resultsLimit": 5,
+      "excludeFromGoogle": true,
+      "excludeDomains": ["wikipedia.org"],
+      "searchParams": {},
+      "supportsImages": false,
+      "description": "L'encyclopédie libre."
+    },
+    {
+      "id": "simple-english-wiki",
+      "name": "Simple English Wikipedia",
+      "type": "mediawiki",
+      "enabled": true,
+      "weight": 0.7,
+      "apiUrl": "https://simple.wikipedia.org/w/api.php",
+      "baseUrl": "https://simple.wikipedia.org",
+      "articlePath": "/wiki/",
+      "fetchThumbnails": true,
+      "thumbnailSize": 200,
+      "resultsLimit": 5,
+      "excludeFromGoogle": true,
+      "excludeDomains": ["simple.wikipedia.org"],
+      "searchParams": {},
+      "supportsImages": false,
+      "description": "Wikipedia en anglais simplifié."
+    },
+    {
+      "id": "wikimedia-commons",
+      "name": "Wikimedia Commons",
+      "type": "mediawiki",
+      "enabled": true,
+      "weight": 0.7,
+      "apiUrl": "https://commons.wikimedia.org/w/api.php",
+      "baseUrl": "https://commons.wikimedia.org",
+      "thumbnailSize": 200,
+      "resultsLimit": 10,
+      "excludeFromGoogle": true,
+      "excludeDomains": ["wikimedia.org", "commons.wikimedia.org"],
+      "supportsWeb": false,
+      "supportsImages": true,
+      "imageSearch": {
+        "enabled": true,
+        "excludeCategories": [
+          "Nudity in art",
+          "Erotic art",
+          "Sexual activity",
+          "Violence",
+          "Deaths",
+          "Human corpses"
+        ]
+      },
+      "description": "Médiathèque d'images et de sons libres."
+    },
+    {
+      "id": "meilisearch-main",
+      "name": "My Custom Search",
+      "type": "meilisearch",
+      "enabled": false,
+      "weight": 0.8,
+      "apiUrl": "https://your-meili-instance.com",
+      "apiKey": "your_meilisearch_api_key",
+      "indexName": "your_index_name",
+      "resultsLimit": 5,
+      "attributesToRetrieve": ["*", "_formatted"],
+      "attributesToHighlight": ["title", "content"],
+      "attributesToCrop": ["content"],
+      "cropLength": 30,
+      "matchingStrategy": "last",
+      "filter": "lang = {lang}",
+      "excludeFromGoogle": true,
+      "excludeDomains": ["your-website.com"],
+      "supportsImages": true,
+      "imageSearch": {
+        "enabled": true
+      },
+      "description": "Instance MeiliSearch personnalisée."
+    },
+    {
+      "id": "ducksters",
+      "name": "Ducksters",
+      "type": "custom",
+      "enabled": false,
+      "weight": 0.6,
+      "apiUrl": "https://www.ducksters.com/api/articles.php?query={query}&limit={limit}",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "resultsLimit": 10,
+      "resultsPath": "articles",
+      "titleField": "title",
+      "linkField": "url",
+      "snippetField": "summary",
+      "excludeFromGoogle": false,
+      "supportsImages": false,
+      "description": "Éducation pour enfants (histoire, sciences, etc.). Attention : nécessite un proxy CORS."
+    },
+    {
+      "id": "national-geo-kids",
+      "name": "National Geographic Kids",
+      "type": "custom",
+      "enabled": false,
+      "weight": 0.7,
+      "apiUrl": "https://api.nationalgeographic.com/kids/articles?search={query}&max={limit}",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "resultsLimit": 10,
+      "resultsPath": "results",
+      "titleField": "title",
+      "linkField": "link",
+      "snippetField": "summary",
+      "excludeFromGoogle": false,
+      "supportsImages": true,
+      "description": "Articles sur la nature, animaux et sciences. Attention : nécessite un proxy CORS."
+    },
+    {
+      "id": "bbc-bitesize",
+      "name": "BBC Bitesize",
+      "type": "custom",
+      "enabled": false,
+      "weight": 0.7,
+      "apiUrl": "https://api.bbc.co.uk/bitesize/search?q={query}&limit={limit}",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "resultsLimit": 10,
+      "resultsPath": "items",
+      "titleField": "title",
+      "linkField": "url",
+      "snippetField": "description",
+      "excludeFromGoogle": false,
+      "supportsImages": false,
+      "description": "Ressources éducatives BBC (UK). Attention : nécessite un proxy CORS."
+    },
+    {
+      "id": "khan-academy",
+      "name": "Khan Academy",
+      "type": "custom",
+      "enabled": false,
+      "weight": 0.8,
+      "apiUrl": "https://www.khanacademy.org/api/v1/search?query={query}&limit={limit}",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "resultsLimit": 10,
+      "resultsPath": "results",
+      "titleField": "title",
+      "linkField": "relativeUrl",
+      "snippetField": "description",
+      "linkPrefix": "https://www.khanacademy.org",
+      "excludeFromGoogle": false,
+      "supportsImages": false,
+      "description": "Cours et vidéos éducatives. Attention : nécessite un proxy CORS."
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2024-05-21",
+    "description": "Exemple de configuration des sources API pour KidSearch."
+  }
+}
