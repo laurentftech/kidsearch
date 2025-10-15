@@ -203,6 +203,14 @@ class GenericApiSource {
             ...(this.config.filter && { filter: this.config.filter.replace('{lang}', lang) })
         };
 
+        if (this.config.semanticSearch && this.config.semanticSearch.enabled) {
+            payload.hybrid = {
+                semanticRatio: this.config.semanticSearch.semanticRatio || 0.75,
+                embedder: 'default'
+            };
+            console.log(`⚡️ Recherche sémantique activée pour ${this.name} (ratio: ${payload.hybrid.semanticRatio})`);
+        }
+
         const res = await fetch(`${this.config.apiUrl}/indexes/${this.config.indexName}/search`, {
             method: 'POST',
             headers: {

@@ -61,7 +61,11 @@ const CONFIG = {
         INDEX_NAME: 'your_index_name',                // Nom de votre index
         SOURCE_NAME: 'Ma Source Personnalisée',       // Nom qui s'affichera dans les résultats
         WEIGHT: 0.6,                                  // Poids pour prioriser les résultats (0.1 à 1.0)
-        BASE_URLS: ['https://your-website.com']       // Liste des URLs de base des sites indexés (pour les exclure de Google)
+        BASE_URLS: ['https://your-website.com'],       // Liste des URLs de base des sites indexés (pour les exclure de Google)
+        semanticSearch: {
+            enabled: true,
+            semanticRatio: 0.75
+        }
     }
 };
 

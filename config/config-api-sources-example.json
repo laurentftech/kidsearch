@@ -103,6 +103,10 @@
       "imageSearch": {
         "enabled": true
       },
+      "semanticSearch": {
+        "enabled": true,
+        "semanticRatio": 0.75
+      },
       "description": "Instance MeiliSearch personnalisée."
     },
     {

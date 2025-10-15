@@ -63,6 +63,21 @@ const CONFIG = {
         SOURCE_NAME: "Wikimedia Commons",
         WEIGHT: 1, // Poids élevé car c'est une source d'images de qualité
         THUMBNAIL_SIZE: 400 // Taille des vignettes demandées à l'API
+    },
+
+    // Optionnel : Ajoutez votre propre instance MeiliSearch pour des résultats personnalisés
+    MEILISEARCH_CONFIG: {
+        ENABLED: false, // Mettre à true pour activer
+        API_URL: 'https://your-meili-instance.com',   // URL de votre instance MeiliSearch
+        API_KEY: 'your_meili_search_api_key',         // Clé API de recherche (pas la clé maître)
+        INDEX_NAME: 'your_index_name',                // Nom de votre index
+        SOURCE_NAME: 'Ma Source Personnalisée',       // Nom qui s'affichera dans les résultats
+        WEIGHT: 0.6,                                  // Poids pour prioriser les résultats (0.1 à 1.0)
+        BASE_URLS: ['https://your-website.com'],       // Liste des URLs de base des sites indexés (pour les exclure de Google)
+        semanticSearch: {
+            enabled: true,
+            semanticRatio: 0.75
+        }
     }
 };
 
