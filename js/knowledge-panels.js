@@ -24,23 +24,29 @@ async function tryDisplayKnowledgePanel(query) {
     const baseUrl = config.BASE_URL.replace('{lang}', lang);
 
     try {
-        // Recherche la page correspondante
+        // Recherche la page correspondante - demande 3 résultats pour choisir le meilleur
         const searchUrl = new URL(apiUrl);
         searchUrl.searchParams.set('action', 'query');
         searchUrl.searchParams.set('format', 'json');
         searchUrl.searchParams.set('list', 'search');
         searchUrl.searchParams.set('srsearch', query);
-        searchUrl.searchParams.set('srlimit', '1');
+        searchUrl.searchParams.set('srlimit', '3');
         searchUrl.searchParams.set('origin', '*');
 
         const searchResponse = await fetch(searchUrl);
         const searchData = await searchResponse.json();
 
-        if (!searchData.query?.search?.[0]) {
+        if (!searchData.query?.search?.length) {
             return; // Aucun résultat
         }
 
-        const pageTitle = searchData.query.search[0].title;
+        // Trouve le résultat le plus pertinent
+        const bestMatch = findBestMatch(query, searchData.query.search);
+        if (!bestMatch) {
+            return; // Pas de correspondance pertinente
+        }
+
+        const pageTitle = bestMatch.title;
 
         // Récupère l'extrait et l'image
         const pageUrl = new URL(apiUrl);
@@ -125,6 +131,103 @@ function displayKnowledgePanel(data) {
         panel.style.opacity = '1';
         panel.style.transform = 'translateY(0)';
     }, 100);
+}
+
+function findBestMatch(query, searchResults) {
+    if (!searchResults || searchResults.length === 0) {
+        return null;
+    }
+
+    const normalizeText = (text) => text.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Retire les accents
+        .replace(/[^a-z0-9\s]/g, ' ') // Garde seulement lettres/chiffres/espaces
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // Fonction pour obtenir le radical d'un mot (stemming simple)
+    const stem = (word) => {
+        // Retire les pluriels et terminaisons courantes
+        return word
+            .replace(/s$/, '')           // pluriel: dinosaures → dinosaure
+            .replace(/x$/, '')           // pluriel: chevaux → chevau
+            .replace(/aux$/, 'al')       // pluriel: animaux → animal
+            .replace(/eux$/, 'eu')       // pluriel: cheveux → cheveu
+            .replace(/tion$/, '')        // substantifs: révolution → révolu
+            .replace(/ment$/, '')        // adverbes: rapidement → rapide
+            .replace(/able$/, '')        // adjectifs: aimable → aim
+            .replace(/ible$/, '');       // adjectifs: visible → vis
+    };
+
+    const queryNorm = normalizeText(query);
+    const queryWords = queryNorm.split(' ').filter(w => w.length > 2);
+    const queryStemmed = stem(queryNorm);
+
+    // Score chaque résultat
+    const scored = searchResults.map(result => {
+        const titleNorm = normalizeText(result.title);
+        const titleStemmed = stem(titleNorm);
+        const snippetNorm = normalizeText(result.snippet || '');
+
+        let score = 0;
+
+        // Correspondance exacte du titre = très bon
+        if (titleNorm === queryNorm || titleStemmed === queryStemmed) {
+            score += 100;
+        }
+
+        // Le titre contient toute la requête = bon
+        if (titleNorm.includes(queryNorm) || titleStemmed.includes(queryStemmed)) {
+            score += 50;
+        }
+
+        // Le titre commence par la requête = bon
+        if (titleNorm.startsWith(queryNorm) || titleStemmed.startsWith(queryStemmed)) {
+            score += 30;
+        }
+
+        // Compte combien de mots de la requête sont dans le titre (avec stemming)
+        let wordsInTitle = 0;
+        queryWords.forEach(word => {
+            const wordStem = stem(word);
+            if (titleNorm.includes(word) || titleStemmed.includes(wordStem)) {
+                wordsInTitle++;
+            }
+        });
+        score += wordsInTitle * 10;
+
+        // Bonus si tous les mots de la requête sont dans le titre
+        if (queryWords.length > 1 && wordsInTitle === queryWords.length) {
+            score += 25;
+        }
+
+        // Pénalité si le titre est très long (moins spécifique)
+        if (titleNorm.length > queryNorm.length * 3) {
+            score -= 5;
+        }
+
+        // Bonus pour les mots dans le snippet
+        const wordsInSnippet = queryWords.filter(word => {
+            const wordStem = stem(word);
+            return snippetNorm.includes(word) || snippetNorm.includes(wordStem);
+        }).length;
+        score += wordsInSnippet * 2;
+
+        return { result, score };
+    });
+
+    // Trie par score décroissant
+    scored.sort((a, b) => b.score - a.score);
+
+    // Ne garde que si le score est suffisant (au moins 15 points)
+    // Pour "Dassault Rafale", si le meilleur résultat est "tempête" avec un score < 15, on refuse
+    const MINIMUM_SCORE = 15;
+    if (scored[0].score < MINIMUM_SCORE) {
+        console.log(`❌ Knowledge panel: meilleur score trop faible (${scored[0].score}) pour "${scored[0].result.title}"`);
+        return null;
+    }
+
+    console.log(`✅ Knowledge panel: "${scored[0].result.title}" (score: ${scored[0].score})`);
+    return scored[0].result;
 }
 
 function detectQueryLanguage(query) {

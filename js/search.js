@@ -276,15 +276,26 @@ class GenericApiSource {
 
         if (!Array.isArray(items)) return [];
 
-        return items.map(item => ({
-            title: item[this.config.titleField || 'title'],
-            link: item[this.config.linkField || 'url'],
-            displayLink: new URL(item[this.config.linkField || 'url']).hostname,
-            snippet: item[this.config.snippetField || 'snippet'],
-            htmlSnippet: item[this.config.snippetField || 'snippet'],
-            source: this.name,
-            weight: this.weight
-        }));
+        return items.map(item => {
+            const result = {
+                title: item[this.config.titleField || 'title'],
+                link: item[this.config.linkField || 'url'],
+                displayLink: item.site || new URL(item[this.config.linkField || 'url']).hostname,
+                snippet: item[this.config.snippetField || 'snippet'],
+                htmlSnippet: item[this.config.snippetField || 'snippet'],
+                source: this.name,
+                weight: item.score || this.weight
+            };
+
+            // Handle images if present (from backend API)
+            if (item.images && item.images.length > 0 && item.images[0].url) {
+                result.pagemap = {
+                    cse_thumbnail: [{ src: item.images[0].url }]
+                };
+            }
+
+            return result;
+        });
     }
 
     async searchImages(query, options = {}) {
