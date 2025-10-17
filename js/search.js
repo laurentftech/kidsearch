@@ -277,12 +277,61 @@ class GenericApiSource {
         if (!Array.isArray(items)) return [];
 
         return items.map(item => {
+            // Clean wiki markup from excerpt/snippet
+            let cleanedSnippet = item[this.config.snippetField || 'snippet'] || '';
+
+            // Remove wiki templates like {{Template|...}} (handles nested braces)
+            let depth = 0;
+            let cleaned = '';
+            for (let i = 0; i < cleanedSnippet.length; i++) {
+                const char = cleanedSnippet[i];
+                const next = cleanedSnippet[i + 1];
+
+                if (char === '{' && next === '{') {
+                    depth++;
+                    i++; // Skip next char
+                } else if (char === '}' && next === '}') {
+                    depth--;
+                    i++; // Skip next char
+                } else if (depth === 0) {
+                    cleaned += char;
+                }
+            }
+            cleanedSnippet = cleaned;
+
+            // Remove wiki links [[Link|Text]] -> Text
+            cleanedSnippet = cleanedSnippet.replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2');
+
+            // Remove other wiki markup
+            cleanedSnippet = cleanedSnippet.replace(/'''([^']+)'''/g, '$1'); // Bold
+            cleanedSnippet = cleanedSnippet.replace(/''([^']+)''/g, '$1');   // Italic
+            cleanedSnippet = cleanedSnippet.replace(/\[\[|\]\]/g, '');       // Remaining brackets
+
+            // Remove file references
+            cleanedSnippet = cleanedSnippet.replace(/Fichier:[^\]]+/g, '');
+            cleanedSnippet = cleanedSnippet.replace(/thumb\|[^\]]+/g, '');
+
+            // Trim and clean up whitespace
+            cleanedSnippet = cleanedSnippet.trim().replace(/\s+/g, ' ');
+
+            // If snippet is too short or empty after cleaning, provide a better fallback
+            if (cleanedSnippet.length < 20) {
+                const title = item[this.config.titleField || 'title'];
+                const siteName = item.site || 'le site';
+                cleanedSnippet = `Découvrez l'article "${title}" sur ${siteName}.`;
+            }
+
+            // Limit length if too long
+            if (cleanedSnippet.length > 300) {
+                cleanedSnippet = cleanedSnippet.substring(0, 297) + '...';
+            }
+
             const result = {
                 title: item[this.config.titleField || 'title'],
                 link: item[this.config.linkField || 'url'],
                 displayLink: item.site || new URL(item[this.config.linkField || 'url']).hostname,
-                snippet: item[this.config.snippetField || 'snippet'],
-                htmlSnippet: item[this.config.snippetField || 'snippet'],
+                snippet: cleanedSnippet,
+                htmlSnippet: cleanedSnippet,
                 source: this.name,
                 weight: item.score || this.weight
             };
@@ -631,6 +680,20 @@ function initializeSearch() {
         return null;
     }
 
+    function isGoogleCseEnabled() {
+        // Vérifie si Google CSE est configuré et activé
+        if (typeof CONFIG === 'undefined') return false;
+
+        // Vérifie le flag d'activation explicite
+        if (CONFIG.GOOGLE_CSE_ENABLED === false) return false;
+
+        // Vérifie que les credentials sont présents et non vides
+        const hasApiKey = CONFIG.GOOGLE_API_KEY && CONFIG.GOOGLE_API_KEY.trim() !== '' && CONFIG.GOOGLE_API_KEY !== 'VOTRE_API_KEY_ICI';
+        const hasCseId = CONFIG.GOOGLE_CSE_ID && CONFIG.GOOGLE_CSE_ID.trim() !== '' && CONFIG.GOOGLE_CSE_ID !== 'VOTRE_ID_CSE_ICI';
+
+        return hasApiKey && hasCseId;
+    }
+
     function buildGoogleCseApiUrl(query, type, page, sort) {
         const url = new URL('https://www.googleapis.com/customsearch/v1');
         let finalQuery = query;
@@ -718,11 +781,18 @@ function initializeSearch() {
         try {
             let combinedData;
             const lang = detectQueryLanguage(cleanedQuery) || i18n.getLang();
+            const googleEnabled = isGoogleCseEnabled();
 
             if (type === 'web') {
-                const googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
-                    .then(res => res.json())
-                    .catch(err => { console.warn("Erreur API Google", err); return { items: [], searchInformation: {} }; });
+                let googlePromise;
+                if (googleEnabled) {
+                    googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
+                        .then(res => res.json())
+                        .catch(err => { console.warn("Erreur API Google", err); return { items: [], searchInformation: {} }; });
+                } else {
+                    console.log("ℹ️ Google CSE désactivé, utilisation des sources alternatives uniquement");
+                    googlePromise = Promise.resolve({ items: [], searchInformation: {} });
+                }
 
                 const secondaryResults = page === 1 ? await apiManager.searchAll(cleanedQuery, lang) : [];
                 const googleResponse = await googlePromise;
@@ -734,13 +804,19 @@ function initializeSearch() {
                     items: mergedResults,
                     searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
                     googleItemsCount: (googleResponse.items || []).length,
-                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE
+                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE || mergedResults.length >= RESULTS_PER_PAGE
                 };
                 webCache.set(cleanedQuery, page, combinedData, currentSort, configSignature);
             } else {
-                const googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
-                    .then(res => res.json())
-                    .catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; });
+                let googlePromise;
+                if (googleEnabled) {
+                    googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
+                        .then(res => res.json())
+                        .catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; });
+                } else {
+                    console.log("ℹ️ Google CSE désactivé pour les images, utilisation des sources alternatives uniquement");
+                    googlePromise = Promise.resolve({ items: [], searchInformation: {} });
+                }
 
                 const secondaryResults = page === 1 ? await apiManager.searchAllImages(cleanedQuery, lang) : [];
                 const googleResponse = await googlePromise;
@@ -752,13 +828,15 @@ function initializeSearch() {
                     items: mergedResults,
                     searchInformation: googleResponse.searchInformation || { totalResults: mergedResults.length.toString() },
                     googleItemsCount: (googleResponse.items || []).length,
-                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE
+                    hasMorePages: (googleResponse.items || []).length >= RESULTS_PER_PAGE || mergedResults.length >= RESULTS_PER_PAGE
                 };
                 imageCache.set(cleanedQuery, page, combinedData, configSignature);
             }
 
             hideLoading();
-            quotaManager.recordRequest();
+            if (googleEnabled && (googleResponse.items || []).length > 0) {
+                quotaManager.recordRequest();
+            }
             updateQuotaDisplay();
             displayResults(combinedData, type, cleanedQuery, page);
         } catch (err) {
@@ -1017,6 +1095,7 @@ function initializeSearch() {
             if (quotaEl) quotaEl.remove();
             return;
         }
+        const googleEnabled = isGoogleCseEnabled();
         const usage = quotaManager.getUsage();
         const webStats = webCache.getStats();
         const imageStats = imageCache.getStats();
@@ -1027,9 +1106,17 @@ function initializeSearch() {
             quotaEl.style.cssText = `position:fixed; bottom:10px; right:10px; background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:8px 12px; font-size:12px; color:#70757a; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:1000;`;
             document.body.appendChild(quotaEl);
         }
-        const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
+
+        let quotaInfo = '';
+        if (googleEnabled) {
+            const quotaColor = usage.remaining > 20 ? '#34a853' : usage.remaining > 5 ? '#fbbc04' : '#ea4335';
+            quotaInfo = `📊 API: <span style="color:${quotaColor}">${usage.remaining}</span>/${usage.limit} |`;
+        } else {
+            quotaInfo = `📊 API: <span style="color:#888">OFF</span> |`;
+        }
+
         quotaEl.innerHTML = `
-        📊 API: <span style="color:${quotaColor}">${usage.remaining}</span>/${usage.limit} |
+        ${quotaInfo}
         📋 Web: ${webStats.size}/${webStats.maxSize} |
         🖼️ Images: ${imageStats.enabled ? `${imageStats.size}/${imageStats.maxSize}` : 'OFF'} |
         <button id="devClearBtn" style="margin-left:8px; background:#fff; border:1px solid #ccc; border-radius:4px; padding:2px 6px; cursor:pointer;">🗑️ Vider</button>`;

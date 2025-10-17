@@ -3,17 +3,27 @@
 
 const CONFIG = {
     // ============================================================
-    // CONFIGURATION REQUISE - Google Custom Search Engine
+    // CONFIGURATION OPTIONNELLE - Google Custom Search Engine
     // ============================================================
+    // ⚠️ NOUVEAU: Google CSE est maintenant OPTIONNEL
+    // Si vous ne configurez pas ces valeurs, le moteur utilisera uniquement
+    // les sources alternatives (Wikipedia, Vikidia, MeiliSearch, backend custom, etc.)
+    // configurées dans config-api-sources.json
 
     // Remplacez par votre ID Google Custom Search Engine
     // Trouvable dans votre console Google CSE: https://cse.google.com/
-    GOOGLE_CSE_ID: 'VOTRE_ID_CSE_ICI',
+    // Laissez vide ou commentez pour désactiver Google CSE
+    GOOGLE_CSE_ID: '',
 
     // Clé API Google (nécessaire pour l'API JSON)
     // Obtenir sur : https://console.developers.google.com/
     // ⚠️ IMPORTANT: Restreindre la clé par référent HTTP pour la sécurité
-    GOOGLE_API_KEY: 'VOTRE_API_KEY_ICI',
+    // Laissez vide ou commentez pour désactiver Google CSE
+    GOOGLE_API_KEY: '',
+
+    // Activer ou désactiver explicitement Google CSE
+    // Si false, Google CSE ne sera jamais utilisé même si les clés sont présentes
+    GOOGLE_CSE_ENABLED: true,
 
     // ============================================================
     // CONFIGURATION OPTIONNELLE

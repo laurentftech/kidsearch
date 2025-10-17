@@ -4,14 +4,14 @@
 
 const CONFIG = {
     // ============================================================
-    // CONFIGURATION GOOGLE CSE (clés de démo non fonctionnelles)
+    // CONFIGURATION GOOGLE CSE (OPTIONNEL - désactivé en démo)
     // ============================================================
 
-    // Remplacez par votre ID Google Custom Search Engine
-    GOOGLE_CSE_ID: 'a6720f2d052674a01', // ⚠️ Clé de démo - ne fonctionnera pas
-
-    // Clé API Google (nécessaire pour l'API JSON)
-    GOOGLE_API_KEY: 'AIzaSyCmFZ1NVQJo4H-Dv0mFAggAu5PO76TrfwA', // ⚠️ Clé de démo - ne fonctionnera pas
+    // Google CSE est maintenant OPTIONNEL. En mode démo, il est désactivé
+    // pour utiliser uniquement les sources alternatives (Wikipedia, Vikidia, etc.)
+    GOOGLE_CSE_ID: '',           // Vide = Google CSE désactivé
+    GOOGLE_API_KEY: '',          // Vide = Google CSE désactivé
+    GOOGLE_CSE_ENABLED: false,   // Explicitement désactivé pour la démo
 
     // ============================================================
     // CONFIGURATION OPTIONNELLE
