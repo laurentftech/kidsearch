@@ -278,41 +278,21 @@ class GenericApiSource {
 
         return items.map(item => {
             // Clean wiki markup from excerpt/snippet
-            let cleanedSnippet = item[this.config.snippetField || 'snippet'] || '';
-
-            // Remove wiki templates like {{Template|...}} (handles nested braces)
-            let depth = 0;
-            let cleaned = '';
-            for (let i = 0; i < cleanedSnippet.length; i++) {
-                const char = cleanedSnippet[i];
-                const next = cleanedSnippet[i + 1];
-
-                if (char === '{' && next === '{') {
-                    depth++;
-                    i++; // Skip next char
-                } else if (char === '}' && next === '}') {
-                    depth--;
-                    i++; // Skip next char
-                } else if (depth === 0) {
-                    cleaned += char;
-                }
-            }
-            cleanedSnippet = cleaned;
-
-            // Remove wiki links [[Link|Text]] -> Text
-            cleanedSnippet = cleanedSnippet.replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2');
-
-            // Remove other wiki markup
-            cleanedSnippet = cleanedSnippet.replace(/'''([^']+)'''/g, '$1'); // Bold
-            cleanedSnippet = cleanedSnippet.replace(/''([^']+)''/g, '$1');   // Italic
-            cleanedSnippet = cleanedSnippet.replace(/\[\[|\]\]/g, '');       // Remaining brackets
-
-            // Remove file references
-            cleanedSnippet = cleanedSnippet.replace(/Fichier:[^\]]+/g, '');
-            cleanedSnippet = cleanedSnippet.replace(/thumb\|[^\]]+/g, '');
-
-            // Trim and clean up whitespace
-            cleanedSnippet = cleanedSnippet.trim().replace(/\s+/g, ' ');
+            let cleanedSnippet = (item[this.config.snippetField || 'snippet'] || '')
+                // Remove wiki templates like {{Template|...}} (non-greedy)
+                .replace(/\{\{.*?\}\}/g, '')
+                // Remove wiki links [[Link|Text]] -> Text or [[Text]] -> Text
+                .replace(/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/g, '$1')
+                // Remove bold/italic markup
+                .replace(/'''([^']+)'''/g, '$1')
+                .replace(/''([^']+)''/g, '$1')
+                // Remove file references and thumbnails
+                .replace(/\[\[Fichier:[^\]]+\]\]/g, '')
+                .replace(/thumb\|[^\]]+/g, '')
+                // Remove remaining brackets from incomplete markup
+                .replace(/\[\[|\]\]/g, '')
+                // Clean up whitespace
+                .trim().replace(/\s+/g, ' ');
 
             // If snippet is too short or empty after cleaning, provide a better fallback
             if (cleanedSnippet.length < 20) {
@@ -779,7 +759,7 @@ function initializeSearch() {
         }
 
         try {
-            let combinedData;
+            let combinedData, googleResponse;
             const lang = detectQueryLanguage(cleanedQuery) || i18n.getLang();
             const googleEnabled = isGoogleCseEnabled();
 
@@ -788,7 +768,10 @@ function initializeSearch() {
                 if (googleEnabled) {
                     googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
                         .then(res => res.json())
-                        .catch(err => { console.warn("Erreur API Google", err); return { items: [], searchInformation: {} }; });
+                        .catch(err => {
+                            console.warn("Erreur API Google", err);
+                            return { error: err, items: [], searchInformation: {} };
+                        });
                 } else {
                     console.log("ℹ️ Google CSE désactivé, utilisation des sources alternatives uniquement");
                     googlePromise = Promise.resolve({ items: [], searchInformation: {} });
@@ -796,7 +779,7 @@ function initializeSearch() {
 
                 const secondaryResults = page === 1 ? await apiManager.searchAll(cleanedQuery, lang) : [];
                 const googleResponse = await googlePromise;
-
+                
                 if (googleResponse.error) console.error("Erreur Google:", googleResponse.error.message);
 
                 const mergedResults = mergeAndWeightResults(googleResponse.items || [], page === 1 ? [secondaryResults] : [], cleanedQuery, 'web');
@@ -812,7 +795,10 @@ function initializeSearch() {
                 if (googleEnabled) {
                     googlePromise = fetch(buildGoogleCseApiUrl(cleanedQuery, type, page, currentSort))
                         .then(res => res.json())
-                        .catch(err => { console.warn("Erreur Google Images", err); return { items: [], searchInformation: {} }; });
+                        .catch(err => {
+                            console.warn("Erreur Google Images", err);
+                            return { error: err, items: [], searchInformation: {} };
+                        });
                 } else {
                     console.log("ℹ️ Google CSE désactivé pour les images, utilisation des sources alternatives uniquement");
                     googlePromise = Promise.resolve({ items: [], searchInformation: {} });
@@ -820,7 +806,7 @@ function initializeSearch() {
 
                 const secondaryResults = page === 1 ? await apiManager.searchAllImages(cleanedQuery, lang) : [];
                 const googleResponse = await googlePromise;
-
+                
                 if (googleResponse.error) console.error("Erreur Google Images:", googleResponse.error.message);
 
                 const mergedResults = mergeAndWeightResults(googleResponse.items || [], page === 1 ? [secondaryResults] : [], cleanedQuery, 'images');
@@ -834,7 +820,8 @@ function initializeSearch() {
             }
 
             hideLoading();
-            if (googleEnabled && (googleResponse.items || []).length > 0) {
+            // Record quota usage only if Google API was enabled and didn't return an error object
+            if (googleEnabled && googleResponse && !googleResponse.error) {
                 quotaManager.recordRequest();
             }
             updateQuotaDisplay();
@@ -897,7 +884,7 @@ function initializeSearch() {
           <div class="result-content">
             <div class="result-url">${item.displayLink || ''}</div>
             <div class="result-title"><a href="${item.link || '#'}" target="_blank" rel="noopener noreferrer">${item.title || ''}</a></div>
-            <div class="result-snippet">${DOMPurify.sanitize(item.htmlSnippet || item.snippet || '')}</div>
+            <div class="result-snippet">${typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(item.htmlSnippet || item.snippet || '') : (item.snippet || '')}</div>
             ${item.source ? `<div class="result-source" style="font-size:0.8em; color:#888; margin-top:5px;">Source: ${item.source}</div>` : ''}
           </div>`;
         return resultDiv;
