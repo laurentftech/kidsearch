@@ -279,18 +279,24 @@ class GenericApiSource {
         return items.map(item => {
             // Clean wiki markup from excerpt/snippet
             let cleanedSnippet = (item[this.config.snippetField || 'snippet'] || '')
-                // Remove wiki templates like {{Template|...}} (non-greedy)
-                .replace(/\{\{.*?\}\}/g, '')
+                // Remove wiki templates like {{Template|...}} and {{Unité|value|unit}}
+                .replace(/\{\{[^}]*\}\}/g, '')
                 // Remove wiki links [[Link|Text]] -> Text or [[Text]] -> Text
                 .replace(/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/g, '$1')
                 // Remove bold/italic markup
                 .replace(/'''([^']+)'''/g, '$1')
                 .replace(/''([^']+)''/g, '$1')
                 // Remove file references and thumbnails
-                .replace(/\[\[Fichier:[^\]]+\]\]/g, '')
+                .replace(/\[\[(?:Fichier|File|Image):[^\]]+\]\]/gi, '')
                 .replace(/thumb\|[^\]]+/g, '')
+                // Remove HTML tags (like <span>)
+                .replace(/<[^>]+>/g, '')
+                // Remove wiki section markers
+                .replace(/={2,}\s*([^=]+)\s*={2,}/g, '$1')
                 // Remove remaining brackets from incomplete markup
-                .replace(/\[\[|\]\]/g, '')
+                .replace(/\[\[|\]\]|\[|\]/g, '')
+                // Remove pipe characters that are leftover from templates
+                .replace(/\|\s*/g, ' ')
                 // Clean up whitespace
                 .trim().replace(/\s+/g, ' ');
 
